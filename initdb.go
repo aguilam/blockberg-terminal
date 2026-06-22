@@ -14,6 +14,7 @@ const initScript = `
 
 	CREATE TABLE IF NOT EXISTS barrel(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
 		x INTEGER NOT NULL,
 		y INTEGER NOT NULL,
 		z INTEGER NOT NULL,
@@ -35,6 +36,7 @@ const initScript = `
 	CREATE TABLE IF NOT EXISTS item(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
+		description TEXT,
 		normalized_name TEXT NOT NULL,
 		type_id INTEGER REFERENCES item_type(id) ON DELETE SET NULL
 	);
@@ -49,6 +51,13 @@ const initScript = `
 		benefit_ratio REAL NOT NULL,
 		record_date TEXT DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE IF NOT EXISTS item_in_barrel(
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		item_id INTEGER REFERENCES item(id) ON DELETE CASCADE,
+		barrel_id INTEGER REFERENCES barrel(id) ON DELETE CASCADE,
+		quantity INTEGER NOT NULL,
+		record_date TEXT DEFAULT CURRENT_TIMESTAMP
+	)
 `
 
 func InitDB(dbPath string) (*sqlite.Conn,error) {

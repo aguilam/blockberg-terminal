@@ -1,6 +1,10 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
   router := gin.Default()
@@ -9,45 +13,56 @@ func main() {
       "message": "pong",
     })
   })
-  router.GET("items",func(ctx *gin.Context) {
+  router.GET("/items",func(ctx *gin.Context) {
     ctx.JSON(200,gin.H{
       "items": "items",
     })
   })
-  router.GET("type",func(ctx *gin.Context) {
+  router.GET("/types",func(ctx *gin.Context) {
     ctx.JSON(200,gin.H{
       "type": "type",
     })
   })
-  router.GET("barrel",func(ctx *gin.Context) {
+  router.GET("/types/:id",func(ctx *gin.Context) {
+    ctx.JSON(200,gin.H{
+      "type": "type",
+    })
+  })
+  router.GET("/barrels",func(ctx *gin.Context) {
+    query := ctx.Query("query")
     ctx.JSON(200,gin.H{
       "barrel": "barrel",
     })
   })
-  router.GET("seller",func(ctx *gin.Context) {
+  router.GET("/barrels/:id",func(ctx *gin.Context) {
+    ctx.JSON(200,gin.H{
+      "barrel": "barrel",
+    })
+  })
+  router.GET("/seller/:id",func(ctx *gin.Context) {
     ctx.JSON(200,gin.H{
       "seller": "seller",
     })
   })
 
-  router.POST("item",func(ctx *gin.Context) {
+  router.POST("/barrels/items",func(ctx *gin.Context) {
+    var request ItemInBarrelPost
+    if err := ctx.ShouldBindJSON(&request);err != nil{
+      ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		  return
+    }
     ctx.JSON(200,gin.H{
       "item": "item",
     })
   })
-  router.POST("type",func(ctx *gin.Context) {
-    ctx.JSON(200,gin.H{
-      "type": "type",
-    })
-  })
-  router.POST("barrel",func(ctx *gin.Context) {
+  router.POST("/barrels",func(ctx *gin.Context) {
+    var request NewBarrelPost
+    if err := ctx.ShouldBindJSON(&request);err != nil{
+      ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		  return
+    }
     ctx.JSON(200,gin.H{
       "barrel": "barrel",
-    })
-  })
-  router.POST("seller",func(ctx *gin.Context) {
-    ctx.JSON(200,gin.H{
-      "seller": "seller",
     })
   })
   router.Run()
