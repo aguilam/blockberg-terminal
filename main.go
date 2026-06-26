@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,10 @@ import (
 
 func main() {
   router := gin.Default()
+  conn,err := InitDB("sqlite.db")
+  if err != nil {
+    panic("failed to connect database: " + err.Error())
+  }
   router.GET("/ping", func(c *gin.Context) {
     c.JSON(200, gin.H{
       "message": "pong",
@@ -51,8 +56,17 @@ func main() {
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
-    ctx.JSON(200,gin.H{
-      "item": "item",
+    err := postBarrelItems(conn,request)
+    if err != nil {
+      if errors.Is(err,ErrNotFound){
+        ctx.JSON(http.StatusNotFound,gin.H{"error": "Barrel not found"})
+        return
+      }
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
+    ctx.JSON(http.StatusCreated,gin.H{
+      "status": "success",
     })
   })
   router.POST("/barrels",func(ctx *gin.Context) {

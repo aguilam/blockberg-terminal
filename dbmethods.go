@@ -1,11 +1,16 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
+
+var ErrNotFound = errors.New("Not found")
+
 func getBarrelHistory(conn *sqlite.Conn,x int,y int, z int) {
 	return
 }
@@ -106,4 +111,104 @@ func getBarrelsBySellerId(conn *sqlite.Conn,sellerId int32) ([]BarrelItem, error
 		return nil,fmt.Errorf("Get barrel by seller error: %w",err)
 	}
 	return sellerBarrels,nil
+}
+
+func getBarrelByCords(conn *sqlite.Conn, x int, y int, z int) (*int32,error){
+	query := `
+		SELECT id FROM barrel
+		WHERE x = ? AND y = ? AND z = ?`
+	var id int32
+	var found bool
+	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			id = stmt.ColumnInt32(0)
+			return nil
+		},
+		Args: []any{x,y,z},
+	})
+	if err != nil {
+        return nil, err
+    }
+	if !found {
+		return nil,nil
+	}
+	return &id,nil
+}
+func createItemInBarrel(conn *sqlite.Conn, item DBItemInBarrel) error{
+	query := `
+	INSERT INTO item_in_barrel (item_id, barrel_id, quantity,record_date)
+	VALUES (?,?,?,?)
+	`
+	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
+		Args: []any{item.ItemId,item.BarrelId,item.Quantity,item.RecordDate},
+	})
+	if err != nil{
+		return err
+	}
+	return nil
+}
+
+func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
+    normalizedName := strings.ToLower(strings.TrimSpace(itemName))
+    var id int32
+    var found bool
+
+    selectQuery := `
+		SELECT id, name, normalized_name 
+		FROM item 
+		WHERE normalized_name = ?;`
+    err := sqlitex.Execute(conn, selectQuery, &sqlitex.ExecOptions{
+        Args: []any{normalizedName},
+        ResultFunc: func(stmt *sqlite.Stmt) error {
+        	id = stmt.ColumnInt32(0)
+            found = true
+            return nil
+        },
+    })
+	if found {
+        return &id, nil
+    }
+
+    if err != nil {
+        return nil, err
+    }
+
+    insertQuery := `
+		INSERT INTO item (name, normalized_name) 
+		VALUES (?, ?) 
+		RETURNING id, name, normalized_name;`
+    err = sqlitex.Execute(conn, insertQuery, &sqlitex.ExecOptions{
+        Args: []any{itemName, normalizedName},
+        ResultFunc: func(stmt *sqlite.Stmt) error {
+            id = stmt.ColumnInt32(0)
+            return nil
+        },
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    return &id, nil
+}
+
+func postBarrelItems(conn *sqlite.Conn,items ItemInBarrelPost) (error){
+	barrelId, err := getBarrelByCords(conn,items.X,items.Y,items.Z)
+	if err != nil{
+		return err;
+	}
+	if barrelId == nil{
+		return ErrNotFound;
+	}
+
+	for _,v := range items.Items {
+		id, err := getOrCreateItem(conn,v.Name)
+		if err != nil {
+			continue
+		}
+		err = createItemInBarrel(conn,DBItemInBarrel{ItemId: *id,BarrelId: *barrelId,Quantity: v.Quantity})
+		if err != nil {
+			return err
+		}
+	}
+	return nil;
 }

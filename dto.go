@@ -1,23 +1,31 @@
 package main
 
 type NewBarrelPost struct {
-	X       string `json:"x" binding:"required"`
-	Y       string `json:"y" binding:"required"`
-	Z       string `json:"z" binding:"required"`
+	X       int    `json:"x" binding:"required"`
+	Y       int    `json:"y" binding:"required"`
+	Z       int    `json:"z" binding:"required"`
 	Message string `json:"message" binding:"required"`
 }
 
 type ItemInBarrelPost struct {
-	Name     string         `json:"name" binding:"required"`
-	Quantity string         `json:"quantity" binding:"required"`
-	Items    []ItemInBarrel `json:"items" binding:"required"`
+	X     int            `json:"x" binding:"required"`
+	Y     int            `json:"y" binding:"required"`
+	Z     int            `json:"z" binding:"required"`
+	Items []ItemInBarrel `json:"items" binding:"required"`
 }
 
 type ItemInBarrel struct {
 	Name     string `json:"name" binding:"required"`
-	Quantity string `json:"quantity" binding:"required"`
+	Quantity int32  `json:"quantity" binding:"required"`
 }
 
+type DBItemInBarrel struct {
+	Id         *int32
+	ItemId     int32
+	BarrelId   int32
+	Quantity   int32
+	RecordDate *string
+}
 type AllTypes struct {
 	Id    int32
 	Name  string
