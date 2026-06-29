@@ -21,12 +21,12 @@ func getTypes(conn *sqlite.Conn)([]AllTypes,error){
 		FROM item_type as type 
 		LEFT JOIN item ON type_id = type.id
 		GROUP BY type.id;`
-	var allTypes []AllTypes
+	allTypes := []AllTypes{}
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			item := AllTypes{
 				Count : stmt.ColumnInt32(0),
-				Id : stmt.ColumnInt32(1),
+				ID : stmt.ColumnInt32(1),
 				Name: stmt.ColumnText(2),
 			}
 			allTypes = append(allTypes, item)

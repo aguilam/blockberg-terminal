@@ -24,8 +24,13 @@ func main() {
     })
   })
   router.GET("/types",func(ctx *gin.Context) {
+    items_types, err := getTypes(conn)
+    if err != nil{
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
     ctx.JSON(200,gin.H{
-      "type": "type",
+      "types": items_types,
     })
   })
   router.GET("/types/:id",func(ctx *gin.Context) {

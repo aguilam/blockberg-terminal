@@ -27,9 +27,9 @@ type DBItemInBarrel struct {
 	RecordDate *string
 }
 type AllTypes struct {
-	Id    int32
-	Name  string
-	Count int32
+	ID    int32  `json:"id"`
+	Name  string `json:"name"`
+	Count int32  `json:"count"`
 }
 
 type Item struct {
