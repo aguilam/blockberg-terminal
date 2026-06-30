@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,8 +35,19 @@ func main() {
     })
   })
   router.GET("/types/:id",func(ctx *gin.Context) {
+    typeId := ctx.Param("id")
+    intType,err := strconv.Atoi(typeId)
+    if err != nil {
+      ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid type id"})
+      return
+    }
+    items, err := getItemsByType(conn,intType)
+    if err != nil{
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
     ctx.JSON(200,gin.H{
-      "type": "type",
+      "items": items,
     })
   })
   router.GET("/barrels",func(ctx *gin.Context) {
