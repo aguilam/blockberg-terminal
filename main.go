@@ -62,8 +62,19 @@ func main() {
     })
   })
   router.GET("/seller/:id",func(ctx *gin.Context) {
+    sellerId := ctx.Param("id")
+    intId,err := strconv.Atoi(sellerId)
+    if err != nil {
+      ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid seller id"})
+      return
+    }
+    items, err := getBarrelsBySellerId(conn,int32(intId))
+    if err != nil{
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
     ctx.JSON(200,gin.H{
-      "seller": "seller",
+      "items": items,
     })
   })
 
