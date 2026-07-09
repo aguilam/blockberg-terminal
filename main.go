@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -84,7 +85,7 @@ func main() {
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
-    err := postBarrelItems(conn,request)
+    err := postItemsInBarrel(conn,request)
     if err != nil {
       if errors.Is(err,ErrNotFound){
         ctx.JSON(http.StatusNotFound,gin.H{"error": "Barrel not found"})
@@ -97,14 +98,36 @@ func main() {
       "status": "success",
     })
   })
+
   router.POST("/barrels",func(ctx *gin.Context) {
     var request NewBarrelPost
     if err := ctx.ShouldBindJSON(&request);err != nil{
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
+    splittedMessage := strings.Split(request.Message,"\n")
+    if len(splittedMessage) == 3{
+      sellerName := splittedMessage[2]
+      sellerId, err := getSellerByName(conn,sellerName)
+      if sellerId == nil {
+        id, err := getUserMinecraftUUID(sellerName)
+        
+        sellerId, err = createSeller(conn,sellerName,&id)
+      }
+      itemName := splittedMessage[0]
+      itemId,err := getOrCreateItem(conn,itemName)
+      benefitParts := strings.Split(splittedMessage[1],"-")
+      floatQuantity, err := strconv.ParseFloat(benefitParts[0],32)
+      floatPrice, err := strconv.ParseFloat(benefitParts[0],32)
+      benefitRatio := floatQuantity / floatPrice
+      barrelId, err := getBarrelByCords(conn,request.X,request.Y,request.Z)
+      if barrelId == nil {
+        barrelId, err = createBarrel(conn,request.Message,request.X,request.Y,request.Z)
+      }
+      _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio))
+    }
     ctx.JSON(200,gin.H{
-      "barrel": "barrel",
+      "status": "success",
     })
   })
   router.Run()

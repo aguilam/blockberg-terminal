@@ -191,7 +191,7 @@ func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
     return &id, nil
 }
 
-func postBarrelItems(conn *sqlite.Conn,items ItemInBarrelPost) (error){
+func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost) (error){
 	barrelId, err := getBarrelByCords(conn,items.X,items.Y,items.Z)
 	if err != nil{
 		return err;
@@ -211,4 +211,89 @@ func postBarrelItems(conn *sqlite.Conn,items ItemInBarrelPost) (error){
 		}
 	}
 	return nil;
+}
+
+func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
+	normalizedName := strings.ToLower(strings.TrimSpace(sellerName))
+	found := false
+	var id int32
+	stmt := `
+		SELECT id FROM seller
+		WHERE normalized_name = ?`
+	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			id = stmt.ColumnInt32(0)
+			found = true
+			return nil
+		},
+		Args: []any {normalizedName},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil,nil
+	}
+	return &id, nil
+}
+
+func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32, error) {
+	normalized_username := strings.ToLower(strings.TrimSpace(name))
+	var id int32
+	stmt := `
+		INSERT INTO seller ( username,normalized_username,minecraft_uuid)
+		VALUES ? ? ?
+		RETURNING id
+	`
+	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			id = stmt.ColumnInt32(0)
+			return nil
+		},
+		Args: []any{name,normalized_username,minecraft_id},
+	})
+	if err != nil{
+		return nil,err
+	}
+	return &id,nil
+}
+
+func createBarrel(conn *sqlite.Conn, name string, x int, y int, z int ) (*int32,error) {
+	var id int32
+	stmt := `
+		INSERT INTO barrel (name,x,y,z)
+		VALUES ? ? ? ?
+		RETURNING id
+	`
+	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			id = stmt.ColumnInt32(0)
+			return nil
+		},
+		Args: []any{name,x,y,z},
+	})
+	if err != nil {
+		return nil,err
+	}
+	return &id,nil
+}
+
+func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int32, sellerId int32, quantity int32, price int32, benefitRatio float32) (*int32, error){
+	var id int32
+	stmt := `
+		INSERT INTO barrel_item (item_id, barrel_id, seller_id, quantity, price, benefit_ratio)
+		VALUES ? ? ? ? ? ?
+		RETURNING id
+	`
+	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			id = stmt.ColumnInt32(0)
+			return nil
+		},
+		Args: []any{itemId,barrelId,sellerId,quantity,price,benefitRatio},
+	})
+	if err != nil {
+		return nil,err
+	}
+	return &id,nil
 }

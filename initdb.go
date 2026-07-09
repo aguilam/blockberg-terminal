@@ -31,6 +31,7 @@ const initScript = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		minecraft_uuid TEXT,
 		username TEXT NOT NULL
+		normalized_username TEXT NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS item(
