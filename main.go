@@ -100,31 +100,33 @@ func main() {
   })
 
   router.POST("/barrels",func(ctx *gin.Context) {
-    var request NewBarrelPost
+    var request []NewBarrelPost
     if err := ctx.ShouldBindJSON(&request);err != nil{
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
-    splittedMessage := strings.Split(request.Message,"\n")
-    if len(splittedMessage) == 3{
-      sellerName := splittedMessage[2]
-      sellerId, err := getSellerByName(conn,sellerName)
-      if sellerId == nil {
-        id, err := getUserMinecraftUUID(sellerName)
-        
-        sellerId, err = createSeller(conn,sellerName,&id)
+    for _, barrel := range request {
+      splittedMessage := strings.Split(barrel.Message,"\n")
+      if len(splittedMessage) == 3{
+        sellerName := splittedMessage[2]
+        sellerId, err := getSellerByName(conn,sellerName)
+        if sellerId == nil {
+          id, err := getUserMinecraftUUID(sellerName)
+          
+          sellerId, err = createSeller(conn,sellerName,&id)
+        }
+        itemName := splittedMessage[0]
+        itemId,err := getOrCreateItem(conn,itemName)
+        benefitParts := strings.Split(splittedMessage[1],"-")
+        floatQuantity, err := strconv.ParseFloat(benefitParts[0],32)
+        floatPrice, err := strconv.ParseFloat(benefitParts[0],32)
+        benefitRatio := floatQuantity / floatPrice
+        barrelId, err := getBarrelByCords(conn,barrel.X,barrel.Y,barrel.Z)
+        if barrelId == nil {
+          barrelId, err = createBarrel(conn,barrel.Message,barrel.X,barrel.Y,barrel.Z)
+        }
+        _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio))
       }
-      itemName := splittedMessage[0]
-      itemId,err := getOrCreateItem(conn,itemName)
-      benefitParts := strings.Split(splittedMessage[1],"-")
-      floatQuantity, err := strconv.ParseFloat(benefitParts[0],32)
-      floatPrice, err := strconv.ParseFloat(benefitParts[0],32)
-      benefitRatio := floatQuantity / floatPrice
-      barrelId, err := getBarrelByCords(conn,request.X,request.Y,request.Z)
-      if barrelId == nil {
-        barrelId, err = createBarrel(conn,request.Message,request.X,request.Y,request.Z)
-      }
-      _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio))
     }
     ctx.JSON(200,gin.H{
       "status": "success",
