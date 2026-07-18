@@ -1,5 +1,9 @@
 package main
 
+import (
+	"time"
+)
+
 type NewBarrelPost struct {
 	X       int    `json:"x" binding:"required"`
 	Y       int    `json:"y" binding:"required"`
@@ -46,4 +50,24 @@ type BarrelItem struct {
 	Price        int32
 	BenefitRatio float32
 	RecordDate   string
+}
+
+type BarrelItemFull struct {
+	Id           string  `json:"id"`
+	Name         string  `json:"name"`
+	Seller       string  `json:"seller"`
+	Price        int     `json:"price"`
+	Quantity     int     `json:"quantity"`
+	X            int     `json:"x"`
+	Y            int     `json:"y"`
+	Z            int     `json:"z"`
+	BenefitRatio float32 `json:"benefitRatio"`
+	RecordDate   time.Time  `json:"recordDate"`
+}
+
+type BarrelItemResponse struct {
+	Barrels []BarrelItemFull `json:"barrels"`
+	Total   int              `json:"total"`
+	Page    int              `json:"page"`
+	Limit   int              `json:"limit"`
 }

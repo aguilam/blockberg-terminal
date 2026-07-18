@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -296,4 +297,81 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int32, sellerId i
 		return nil,err
 	}
 	return &id,nil
+}
+
+func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*BarrelItemResponse, error) {
+	normalized_query := strings.ToLower(strings.TrimSpace(query))
+	var barrels []BarrelItemFull;
+	offset := (page - 1) * pageSize
+	var total int;
+
+	sqlite_query := `
+		SELECT id, name, username, price, quantity, x, y, z, benefit_ratio, record_date FROM (
+			SELECT item.name, seller.username, barrel_item.id, barrel_item.price, barrel_item.quantity, barrel.x, barrel.y, barrel.z, barrel_item.benefit_ratio, barrel_item.record_date, item.normalized_name, 
+			ROW_NUMBER() OVER (
+				PARTITION BY barrel_item.barrel_id
+				ORDER BY barrel_item.record_date DESC, barrel_item.id DESC
+			) AS barrel_pos
+			FROM item
+			JOIN barrel_item ON barrel_item.item_id = item.id
+			JOIN barrel ON barrel.id = barrel_item.barrel_id
+			JOIN seller ON seller.id = barrel_item.seller_id
+			WHERE item.normalized_name LIKE '%' || ? || '%'
+		)
+		WHERE barrel_pos = 1
+		ORDER BY INSTR(normalized_name, ?) ASC, LENGTH(normalized_name) ASC, benefit_ratio ASC
+		LIMIT ?
+		OFFSET ?
+	`
+	err := sqlitex.Execute(conn,sqlite_query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			record_date, _ := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(9))
+			barrel := BarrelItemFull{
+				Id: stmt.ColumnText(0),
+				Name: stmt.ColumnText(1),
+				Seller: stmt.ColumnText(2),
+				Price: stmt.ColumnInt(3),
+				Quantity: stmt.ColumnInt(4),
+				X: stmt.ColumnInt(5),
+				Y: stmt.ColumnInt(6),
+				Z: stmt.ColumnInt(7),
+				BenefitRatio: float32(stmt.ColumnFloat(8)),
+				RecordDate: record_date,
+			}
+			barrels = append(barrels, barrel)
+			return nil
+		},
+		Args: []any{normalized_query,normalized_query,pageSize,offset},
+	})
+
+	if err != nil {
+		return nil,err
+	}
+
+	sqlite_query = `
+		SELECT COUNT(*) FROM (
+			SELECT barrel_item.id,
+				ROW_NUMBER() OVER (
+    				PARTITION BY barrel_item.barrel_id
+    				ORDER BY barrel_item.record_date DESC, barrel_item.id DESC
+				) AS barrel_pos
+			FROM item
+			JOIN barrel_item ON barrel_item.item_id = item.id
+			WHERE item.normalized_name LIKE '%' || ? || '%'
+		)
+		WHERE barrel_pos = 1
+	`
+	err = sqlitex.Execute(conn,sqlite_query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			total = int(stmt.ColumnInt32(0))
+			return nil
+		},
+		Args: []any{normalized_query},
+	})
+
+	if err != nil {
+		return nil,err
+	}
+
+	return &BarrelItemResponse{Barrels: barrels, Total: total, Page: page, Limit: pageSize}, nil
 }

@@ -15,16 +15,19 @@ func main() {
   if err != nil {
     panic("failed to connect database: " + err.Error())
   }
+
   router.GET("/ping", func(c *gin.Context) {
     c.JSON(200, gin.H{
       "message": "pong",
     })
   })
+
   router.GET("/items",func(ctx *gin.Context) {
     ctx.JSON(200,gin.H{
       "items": "items",
     })
   })
+
   router.GET("/types",func(ctx *gin.Context) {
     items_types, err := getTypes(conn)
     if err != nil{
@@ -35,6 +38,7 @@ func main() {
       "types": items_types,
     })
   })
+
   router.GET("/types/:id",func(ctx *gin.Context) {
     typeId := ctx.Param("id")
     intType,err := strconv.Atoi(typeId)
@@ -51,17 +55,38 @@ func main() {
       "items": items,
     })
   })
+
   router.GET("/barrels",func(ctx *gin.Context) {
     query := ctx.Query("query")
-    ctx.JSON(200,gin.H{
-      "barrel": "barrel",
-    })
+    page := ctx.Query("page")
+    pageSize := ctx.DefaultQuery("page_size","10")
+    if strings.TrimSpace(query) == "" {
+      ctx.JSON(400, gin.H{"error": "query is required"})
+      return
+    }
+    intPageSize, err := strconv.Atoi(pageSize)
+    if err != nil || intPageSize < 1 {
+      intPageSize = 10
+    }
+    intPage, err := strconv.Atoi(page)
+    if err != nil || intPage < 1 {
+      intPage = 1
+    }
+    intPageSize = min(intPageSize,100)
+    response, err := getBarrelsByQuery(conn,query,intPage,intPageSize)
+    if err != nil{
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
+    ctx.JSON(200,response)
   })
+
   router.GET("/barrels/:id",func(ctx *gin.Context) {
     ctx.JSON(200,gin.H{
       "barrel": "barrel",
     })
   })
+
   router.GET("/seller/:id",func(ctx *gin.Context) {
     sellerId := ctx.Param("id")
     intId,err := strconv.Atoi(sellerId)
@@ -110,9 +135,14 @@ func main() {
       if len(splittedMessage) == 3{
         sellerName := splittedMessage[2]
         sellerId, err := getSellerByName(conn,sellerName)
+        if err != nil {
+          ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+        }
         if sellerId == nil {
           id, err := getUserMinecraftUUID(sellerName)
-          
+          if err != nil {
+            ctx.Error(err);
+          }
           sellerId, err = createSeller(conn,sellerName,&id)
         }
         itemName := splittedMessage[0]
@@ -132,5 +162,6 @@ func main() {
       "status": "success",
     })
   })
+
   router.Run()
 }
