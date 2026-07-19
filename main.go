@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -10,7 +11,10 @@ import (
 )
 
 func main() {
-  router := gin.Default()
+  router := gin.New()
+
+  router.Use(gin.Logger())
+  router.Use(gin.Recovery())
   conn,err := InitDB("sqlite.db")
   if err != nil {
     panic("failed to connect database: " + err.Error())
@@ -107,11 +111,13 @@ func main() {
   router.POST("/barrels/items",func(ctx *gin.Context) {
     var request ItemInBarrelPost
     if err := ctx.ShouldBindJSON(&request);err != nil{
+      ctx.Error(err)
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
-    err := postItemsInBarrel(conn,request)
+    err = postItemsInBarrel(conn,request)
     if err != nil {
+      ctx.Error(err)
       if errors.Is(err,ErrNotFound){
         ctx.JSON(http.StatusNotFound,gin.H{"error": "Barrel not found"})
         return
@@ -141,21 +147,28 @@ func main() {
         if sellerId == nil {
           id, err := getUserMinecraftUUID(sellerName)
           if err != nil {
-            ctx.Error(err);
+            ctx.Error(err)
           }
           sellerId, err = createSeller(conn,sellerName,&id)
         }
         itemName := splittedMessage[0]
         itemId,err := getOrCreateItem(conn,itemName)
         benefitParts := strings.Split(splittedMessage[1],"-")
-        floatQuantity, err := strconv.ParseFloat(benefitParts[0],32)
-        floatPrice, err := strconv.ParseFloat(benefitParts[0],32)
+        re := regexp.MustCompile("[^0-9]")
+        floatQuantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
+        floatPrice, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
         benefitRatio := floatQuantity / floatPrice
         barrelId, err := getBarrelByCords(conn,barrel.X,barrel.Y,barrel.Z)
         if barrelId == nil {
           barrelId, err = createBarrel(conn,barrel.Message,barrel.X,barrel.Y,barrel.Z)
+          if err != nil {
+            ctx.Error(err)
+          }
         }
         _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio))
+        if err != nil {
+          ctx.Error(err)
+        }
       }
     }
     ctx.JSON(200,gin.H{

@@ -12,9 +12,9 @@ type NewBarrelPost struct {
 }
 
 type ItemInBarrelPost struct {
-	X     int            `json:"x" binding:"required"`
-	Y     int            `json:"y" binding:"required"`
-	Z     int            `json:"z" binding:"required"`
+	X     *int            `json:"x" binding:"required"`
+	Y     *int            `json:"y" binding:"required"`
+	Z     *int            `json:"z" binding:"required"`
 	Items []ItemInBarrel `json:"items" binding:"required"`
 }
 

@@ -8,7 +8,6 @@ import (
 )
 
 const initScript = `
-	PRAGMA journal_mode = WAL;
 	PRAGMA foreign_keys = ON;
 	PRAGMA busy_timeout = 5000;
 
@@ -30,7 +29,7 @@ const initScript = `
 	CREATE TABLE IF NOT EXISTS seller(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		minecraft_uuid TEXT,
-		username TEXT NOT NULL
+		username TEXT NOT NULL,
 		normalized_username TEXT NOT NULL
 	);
 
