@@ -51,13 +51,19 @@ const initScript = `
 		benefit_ratio REAL NOT NULL,
 		record_date TEXT DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS storage_snapshot(
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		barrel_id INTEGER REFERENCES barrel(id) ON DELETE CASCADE,
+		record_date TEXT DEFAULT CURRENT_TIMESTAMP
+	);
+	
 	CREATE TABLE IF NOT EXISTS item_in_barrel(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		item_id INTEGER REFERENCES item(id) ON DELETE CASCADE,
-		barrel_id INTEGER REFERENCES barrel(id) ON DELETE CASCADE,
-		quantity INTEGER NOT NULL,
-		record_date TEXT DEFAULT CURRENT_TIMESTAMP
-	)
+		snapshot_id INTEGER REFERENCES storage_snapshot(id) ON DELETE CASCADE,
+		quantity INTEGER NOT NULL
+	);
 `
 
 func InitDB(dbPath string) (*sqlite.Conn,error) {

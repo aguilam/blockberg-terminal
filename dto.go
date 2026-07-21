@@ -26,9 +26,8 @@ type ItemInBarrel struct {
 type DBItemInBarrel struct {
 	Id         *int32
 	ItemId     int32
-	BarrelId   int32
+	SnapshotId int
 	Quantity   int32
-	RecordDate *string
 }
 type AllTypes struct {
 	ID    int32  `json:"id"`
@@ -53,7 +52,7 @@ type BarrelItem struct {
 }
 
 type BarrelItemFull struct {
-	Id           string  `json:"id"`
+	Id           int  `json:"id"`
 	Name         string  `json:"name"`
 	Seller       string  `json:"seller"`
 	Price        int     `json:"price"`
@@ -62,12 +61,34 @@ type BarrelItemFull struct {
 	Y            int     `json:"y"`
 	Z            int     `json:"z"`
 	BenefitRatio float32 `json:"benefitRatio"`
+	SnapshotsCount int `json:"snapshotsCount"`
 	RecordDate   time.Time  `json:"recordDate"`
 }
+
+type ItemsSnapshot struct {
+	Items []ItemInBarrel `json:"items"`
+	RecordDate   time.Time  `json:"recordDate"`
+}
+
 
 type BarrelItemResponse struct {
 	Barrels []BarrelItemFull `json:"barrels"`
 	Total   int              `json:"total"`
 	Page    int              `json:"page"`
 	Limit   int              `json:"limit"`
+}
+
+type BarrelInfo struct {
+	Id           int  `json:"id"`
+	BarrelText	 string `json:"barrelText"`
+	Name         string  `json:"name"`
+	Seller       string  `json:"seller"`
+	Price        int     `json:"price"`
+	Quantity     int     `json:"quantity"`
+	BenefitRatio float32 `json:"benefitRatio"`
+	X            int     `json:"x"`
+	Y            int     `json:"y"`
+	Z            int     `json:"z"`
+	RecordDate   time.Time  `json:"recordDate"`
+	ItemsSnapshot ItemsSnapshot `json:"barrel_items"`
 }

@@ -86,9 +86,18 @@ func main() {
   })
 
   router.GET("/barrels/:id",func(ctx *gin.Context) {
-    ctx.JSON(200,gin.H{
-      "barrel": "barrel",
-    })
+    id := ctx.Param("id")
+    intId, err := strconv.Atoi(id)
+    if err != nil {
+      ctx.Error(err)
+      ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid barrel id"})
+      return
+    }
+    info, err := getBarrelInfo(conn,intId)
+    if info == nil {
+      ctx.JSON(http.StatusNotFound,gin.H{"error": "barrel not found"})
+    }
+    ctx.JSON(http.StatusOK,info)
   })
 
   router.GET("/barrels/:id/items",func(ctx *gin.Context) {
