@@ -91,6 +91,12 @@ func main() {
     })
   })
 
+  router.GET("/barrels/:id/items",func(ctx *gin.Context) {
+    ctx.JSON(200,gin.H{
+      "items": "items",
+    })
+  })
+
   router.GET("/seller/:id",func(ctx *gin.Context) {
     sellerId := ctx.Param("id")
     intId,err := strconv.Atoi(sellerId)
@@ -160,12 +166,12 @@ func main() {
         benefitRatio := floatQuantity / floatPrice
         barrelId, err := getBarrelByCords(conn,barrel.X,barrel.Y,barrel.Z)
         if barrelId == nil {
-          barrelId, err = createBarrel(conn,barrel.Message,barrel.X,barrel.Y,barrel.Z)
+          barrelId, err = createBarrel(conn,barrel.X,barrel.Y,barrel.Z)
           if err != nil {
             ctx.Error(err)
           }
         }
-        _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio))
+        _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio),barrel.Message)
         if err != nil {
           ctx.Error(err)
         }

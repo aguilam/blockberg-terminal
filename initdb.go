@@ -13,7 +13,6 @@ const initScript = `
 
 	CREATE TABLE IF NOT EXISTS barrel(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
 		x INTEGER NOT NULL,
 		y INTEGER NOT NULL,
 		z INTEGER NOT NULL,
@@ -47,6 +46,7 @@ const initScript = `
 		barrel_id INTEGER REFERENCES barrel(id) ON DELETE CASCADE,
 		seller_id INTEGER REFERENCES seller(id) ON DELETE SET NULL,
 		quantity INTEGER NOT NULL,
+		barrel_text TEXT,
 		price INTEGER NOT NULL,
 		benefit_ratio REAL NOT NULL,
 		record_date TEXT DEFAULT CURRENT_TIMESTAMP

@@ -248,7 +248,7 @@ func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32,
 	}
 
 	stmt := `
-		INSERT INTO seller ( username,normalized_username,minecraft_uuid)
+		INSERT INTO seller (username,normalized_username,minecraft_uuid)
 		VALUES (?, ?, ?)
 		RETURNING id
 	`
@@ -265,11 +265,11 @@ func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32,
 	return &id,nil
 }
 
-func createBarrel(conn *sqlite.Conn, name string, x int, y int, z int ) (*int32,error) {
+func createBarrel(conn *sqlite.Conn, x int, y int, z int ) (*int32,error) {
 	var id int32
 	stmt := `
-		INSERT INTO barrel (name,x,y,z)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO barrel (x,y,z)
+		VALUES (?, ?, ?)
 		RETURNING id
 	`
 	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
@@ -277,7 +277,7 @@ func createBarrel(conn *sqlite.Conn, name string, x int, y int, z int ) (*int32,
 			id = stmt.ColumnInt32(0)
 			return nil
 		},
-		Args: []any{name,x,y,z},
+		Args: []any{x,y,z},
 	})
 	if err != nil {
 		return nil,err
@@ -285,11 +285,11 @@ func createBarrel(conn *sqlite.Conn, name string, x int, y int, z int ) (*int32,
 	return &id,nil
 }
 
-func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int32, sellerId int32, quantity int32, price int32, benefitRatio float32) (*int32, error){
+func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int32, sellerId int32, quantity int32, price int32, benefitRatio float32,barrel_text string) (*int32, error){
 	var id int32
 	stmt := `
-		INSERT INTO barrel_item (item_id, barrel_id, seller_id, quantity, price, benefit_ratio)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO barrel_item (item_id, barrel_id, seller_id, quantity, price, benefit_ratio,barrel_text)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		RETURNING id
 	`
 	err := sqlitex.Execute(conn,stmt,&sqlitex.ExecOptions{
@@ -297,7 +297,7 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int32, sellerId i
 			id = stmt.ColumnInt32(0)
 			return nil
 		},
-		Args: []any{itemId,barrelId,sellerId,quantity,price,benefitRatio},
+		Args: []any{itemId,barrelId,sellerId,quantity,price,benefitRatio,barrel_text},
 	})
 	if err != nil {
 		return nil,err
