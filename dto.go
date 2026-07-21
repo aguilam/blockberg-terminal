@@ -90,5 +90,5 @@ type BarrelInfo struct {
 	Y            int     `json:"y"`
 	Z            int     `json:"z"`
 	RecordDate   time.Time  `json:"recordDate"`
-	ItemsSnapshot ItemsSnapshot `json:"barrel_items"`
+	ItemsSnapshot ItemsSnapshot `json:"barrelItems"`
 }

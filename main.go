@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -78,7 +79,9 @@ func main() {
     }
     intPageSize = min(intPageSize,100)
     response, err := getBarrelsByQuery(conn,query,intPage,intPageSize)
+    log.Printf("%+v\n", response)
     if err != nil{
+      ctx.Error(err)
       ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
       return
     }
@@ -94,8 +97,15 @@ func main() {
       return
     }
     info, err := getBarrelInfo(conn,intId)
+    if err != nil {
+      ctx.Error(err)
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
     if info == nil {
+      ctx.Error(err)
       ctx.JSON(http.StatusNotFound,gin.H{"error": "barrel not found"})
+      return
     }
     ctx.JSON(http.StatusOK,info)
   })

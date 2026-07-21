@@ -338,19 +338,30 @@ func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) 
 
 	sqlite_query := `
 		SELECT id, name, username, price, quantity, x, y, z, benefit_ratio, record_date, snapshots_count FROM (
-			SELECT item.name, seller.username, barrel_item.price, barrel_item.quantity, barrel.id, barrel.x, barrel.y, barrel.z, barrel_item.benefit_ratio, barrel_item.record_date, item.normalized_name, 
-			ROW_NUMBER() OVER (
-				PARTITION BY barrel_item.barrel_id
-				ORDER BY barrel_item.record_date DESC, barrel_item.id DESC
-			) AS barrel_pos,
-			COUNT(snapshot) AS snapshots_count
-			FROM item
-			JOIN barrel_item ON barrel_item.item_id = item.id
-			JOIN barrel ON barrel.id = barrel_item.barrel_id
-			JOIN storage_snapshot AS snapshot ON shapshot.barrel_id ON barrel.id
-			JOIN seller ON seller.id = barrel_item.seller_id
+		    SELECT 
+		        barrel.id, 
+		        item.name, 
+		        seller.username, 
+		        barrel_item.price, 
+		        barrel_item.quantity, 
+		        barrel.x, 
+		        barrel.y, 
+		        barrel.z, 
+		        barrel_item.benefit_ratio, 
+		        barrel_item.record_date, 
+		        item.normalized_name, 
+		        ROW_NUMBER() OVER (
+		            PARTITION BY barrel_item.barrel_id
+		            ORDER BY barrel_item.record_date DESC, barrel_item.id DESC
+		        ) AS barrel_pos,
+		        COUNT(snapshot.id) OVER (PARTITION BY barrel_item.barrel_id) AS snapshots_count
+		    FROM item
+		    JOIN barrel_item ON barrel_item.item_id = item.id
+		    JOIN barrel ON barrel.id = barrel_item.barrel_id
+		    LEFT JOIN storage_snapshot AS snapshot ON snapshot.barrel_id = barrel.id
+		    JOIN seller ON seller.id = barrel_item.seller_id
 		)
-		WHERE barrel_pos = 1 AND item.normalized_name LIKE '%' || ? || '%'
+		WHERE barrel_pos = 1 AND normalized_name LIKE '%' || ? || '%'
 		ORDER BY INSTR(normalized_name, ?) ASC, LENGTH(normalized_name) ASC, benefit_ratio ASC
 		LIMIT ?
 		OFFSET ?
@@ -387,11 +398,11 @@ func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) 
 				ROW_NUMBER() OVER (
     				PARTITION BY barrel_item.barrel_id
     				ORDER BY barrel_item.record_date DESC, barrel_item.id DESC
-				) AS barrel_pos
+				) AS barrel_pos, item.normalized_name
 			FROM item
 			JOIN barrel_item ON barrel_item.item_id = item.id
 		)
-		WHERE barrel_pos = 1 AND item.normalized_name LIKE '%' || ? || '%'
+		WHERE barrel_pos = 1 AND normalized_name LIKE '%' || ? || '%'
 	`
 	err = sqlitex.Execute(conn,sqlite_query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -404,7 +415,6 @@ func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) 
 	if err != nil {
 		return nil,err
 	}
-
 	return &BarrelItemResponse{Barrels: barrels, Total: total, Page: page, Limit: pageSize}, nil
 }
 
@@ -414,9 +424,9 @@ func getBarrelInfo(conn *sqlite.Conn, barrelId int) (*BarrelInfo,error) {
 	var found bool
 	
 	query := `
-		SELECT barrel.id, bi.barrel_text, seller.name, bi.price, bi.quantity, bi.benefit_ratio, barrel.x, barrel.y, barrel.z, bi.record_date, storage_snapshot.id, storage_snapshot.record_date
+		SELECT barrel.id, bi.barrel_text, item.name, seller.username, bi.price, bi.quantity, bi.benefit_ratio, barrel.x, barrel.y, barrel.z, bi.record_date, snapshot.id, snapshot.record_date
 		FROM barrel
-		JOIN barrel_item bi ON bi.id = (SELECT id FROM barrel_item WHERE barrel_id = ? ORDER BY record_date DESCT, id DESC LIMIT 1)
+		JOIN barrel_item bi ON bi.id = (SELECT id FROM barrel_item WHERE barrel_id = ? ORDER BY record_date DESC, id DESC LIMIT 1)
 		JOIN item ON item.id = bi.item_id
 		JOIN seller ON seller.id = bi.seller_id
 		LEFT JOIN storage_snapshot as snapshot ON snapshot.id = (SELECT id FROM storage_snapshot WHERE barrel_id = ? ORDER BY record_date DESC, id DESC LIMIT 1) 
@@ -424,33 +434,34 @@ func getBarrelInfo(conn *sqlite.Conn, barrelId int) (*BarrelInfo,error) {
 	`
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			record_date, _ := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(9))
+			record_date, _ := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(10))
 			barrelInfo.Id = stmt.ColumnInt(0)
 			barrelInfo.BarrelText = stmt.ColumnText(1)
-			barrelInfo.Seller = stmt.ColumnText(2)
-			barrelInfo.Price = stmt.ColumnInt(3)
-			barrelInfo.Quantity = stmt.ColumnInt(4)
-			barrelInfo.BenefitRatio = float32(stmt.ColumnFloat(5))
-			barrelInfo.X = stmt.ColumnInt(6)
-			barrelInfo.Y = stmt.ColumnInt(7)
-			barrelInfo.Z = stmt.ColumnInt(8)
+			barrelInfo.Name = stmt.ColumnText(2)
+			barrelInfo.Seller = stmt.ColumnText(3)
+			barrelInfo.Price = stmt.ColumnInt(4)
+			barrelInfo.Quantity = stmt.ColumnInt(5)
+			barrelInfo.BenefitRatio = float32(stmt.ColumnFloat(6))
+			barrelInfo.X = stmt.ColumnInt(7)
+			barrelInfo.Y = stmt.ColumnInt(8)
+			barrelInfo.Z = stmt.ColumnInt(9)
 			barrelInfo.RecordDate = record_date
-			lastSnapshotId = stmt.ColumnInt(10)
-			snapshot_date, _ := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(11))
+			lastSnapshotId = stmt.ColumnInt(11)
+			snapshot_date, _ := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(12))
 			barrelInfo.ItemsSnapshot.RecordDate = snapshot_date
 			found = true
 			return nil
 		},
 		Args: []any{barrelId,barrelId,barrelId},
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
 	query = `
-		SELECT name, quantity
+		SELECT item.name, quantity
 		FROM item_in_barrel
+		JOIN item ON item.id = item_in_barrel.item_id
 		WHERE snapshot_id = ?
 	`
 
@@ -465,8 +476,6 @@ func getBarrelInfo(conn *sqlite.Conn, barrelId int) (*BarrelInfo,error) {
 		},
 		Args: []any{lastSnapshotId},
 	})
-
-
 	if err != nil {
 		return nil, err
 	}
