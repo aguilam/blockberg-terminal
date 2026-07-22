@@ -2,7 +2,8 @@ package main
 
 import (
 	"errors"
-	"log"
+	"flag"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -12,6 +13,10 @@ import (
 )
 
 func main() {
+  apiKey := flag.String("api-key","","Key used for add new storages. If not set, anyone can add new storages")
+  port := flag.Int("port",8080,"Server port")
+  flag.Parse()
+
   router := gin.New()
 
   router.Use(gin.Logger())
@@ -79,7 +84,6 @@ func main() {
     }
     intPageSize = min(intPageSize,100)
     response, err := getBarrelsByQuery(conn,query,intPage,intPageSize)
-    log.Printf("%+v\n", response)
     if err != nil{
       ctx.Error(err)
       ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -156,6 +160,14 @@ func main() {
   })
 
   router.POST("/barrels",func(ctx *gin.Context) {
+    auth := ctx.GetHeader("Authorization")
+    expected := "Bearer " + *apiKey
+    if *apiKey != "" && auth != expected {
+      ctx.JSON(http.StatusUnauthorized, gin.H{
+          "error": "Invalid API key",
+      })
+      return
+    }
     var request []NewBarrelPost
     if err := ctx.ShouldBindJSON(&request);err != nil{
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -168,6 +180,7 @@ func main() {
         sellerId, err := getSellerByName(conn,sellerName)
         if err != nil {
           ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+          return
         }
         if sellerId == nil {
           id, err := getUserMinecraftUUID(sellerName)
@@ -200,6 +213,6 @@ func main() {
       "status": "success",
     })
   })
-
-  router.Run()
+  addr := fmt.Sprintf(":%d",*port)
+  router.Run(addr)
 }
