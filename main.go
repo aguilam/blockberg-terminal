@@ -15,6 +15,14 @@ import (
 func main() {
   apiKey := flag.String("api-key","","Key used for add new storages. If not set, anyone can add new storages")
   port := flag.Int("port",8080,"Server port")
+  aiKey := flag.String("ai-key","","Key")
+  aiUrl := flag.String("ai-url","","URL")
+  aiPrompt := flag.String("ai-prompt","","")
+  aiModel := flag.String("ai-model","","")
+  prompt := defaultPrompt
+  if *aiPrompt != "" {
+    prompt = *aiPrompt
+  }
   flag.Parse()
 
   router := gin.New()
@@ -169,44 +177,50 @@ func main() {
       return
     }
     var request []NewBarrelPost
-    if err := ctx.ShouldBindJSON(&request);err != nil{
+    if err := ctx.ShouldBindJSON(&request); err != nil {
+      ctx.Error(err)
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
+    var recognizedBarrel *RecognizedBarrelItem
     for _, barrel := range request {
       splittedMessage := strings.Split(barrel.Message,"\n")
       if len(splittedMessage) == 3{
-        sellerName := splittedMessage[2]
-        sellerId, err := getSellerByName(conn,sellerName)
-        if err != nil {
-          ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
-          return
-        }
-        if sellerId == nil {
-          id, err := getUserMinecraftUUID(sellerName)
-          if err != nil {
-            ctx.Error(err)
-          }
-          sellerId, err = createSeller(conn,sellerName,&id)
-        }
-        itemName := splittedMessage[0]
-        itemId,err := getOrCreateItem(conn,itemName)
+        recognizedBarrel.ItemName = splittedMessage[0]
         benefitParts := strings.Split(splittedMessage[1],"-")
+        recognizedBarrel.SellerName = splittedMessage[2]
         re := regexp.MustCompile("[^0-9]")
-        floatQuantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
-        floatPrice, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
-        benefitRatio := floatQuantity / floatPrice
-        barrelId, err := getBarrelByCords(conn,barrel.X,barrel.Y,barrel.Z)
-        if barrelId == nil {
-          barrelId, err = createBarrel(conn,barrel.X,barrel.Y,barrel.Z)
-          if err != nil {
-            ctx.Error(err)
-          }
-        }
-        _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,int32(floatQuantity),int32(floatPrice),float32(benefitRatio),barrel.Message)
+        recognizedBarrel.Quantity, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
+        recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
+        recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
+      } else if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+        recognizedBarrel, err = aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
         if err != nil {
           ctx.Error(err)
+          return
         }
+      }
+      sellerId, err := getSellerByName(conn,recognizedBarrel.SellerName)
+      if sellerId == nil {
+        id, err := getUserMinecraftUUID(recognizedBarrel.SellerName)
+        if err != nil {
+          ctx.Error(err)
+          return
+        }
+        sellerId, err = createSeller(conn,recognizedBarrel.SellerName,&id)
+      }
+      barrelId, err := getBarrelByCords(conn,*barrel.X,*barrel.Y,*barrel.Z)
+      if barrelId == nil {
+        barrelId, err = createBarrel(conn,*barrel.X,*barrel.Y,*barrel.Z)
+        if err != nil {
+          ctx.Error(err)
+          return
+        }
+      }
+      itemId,err := getOrCreateItem(conn,recognizedBarrel.ItemName)
+      _, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,*recognizedBarrel,barrel.Message)
+      if err != nil {
+        ctx.Error(err)
       }
     }
     ctx.JSON(200,gin.H{

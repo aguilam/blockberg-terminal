@@ -5,9 +5,9 @@ import (
 )
 
 type NewBarrelPost struct {
-	X       int    `json:"x" binding:"required"`
-	Y       int    `json:"y" binding:"required"`
-	Z       int    `json:"z" binding:"required"`
+	X       *int    `json:"x" binding:"required"`
+	Y       *int    `json:"y" binding:"required"`
+	Z       *int    `json:"z" binding:"required"`
 	Message string `json:"message" binding:"required"`
 }
 
@@ -91,4 +91,19 @@ type BarrelInfo struct {
 	Z            int     `json:"z"`
 	RecordDate   time.Time  `json:"recordDate"`
 	ItemsSnapshot ItemsSnapshot `json:"barrelItems"`
+}
+type AiRecognizedBarrelItem struct {
+	SellerName string `json:"seller_name" jsonschema_description:"Minecraft username of the seller. If no seller name is present, return 'None'"`
+    ItemName string `json:"item_name" jsonschema_description:"Normalized Minecraft item name without emojis, extra symbols, or quantity information"`
+    Quantity int32 `json:"quantity" jsonschema_description:"Total number of items. Convert stacks to items (1 stack = 64 items)"`
+    Price int32 `json:"price" jsonschema_description:"Price of items. If input contains blocks, convert them to single items (1 block = 9 diamonds)"`
+	TypeName string `json:"type_name" jsonschema_description:"Item category" jsonschema:"enum=building blocks, enum=colored blocks, enum=natural blocks, enum=functional blocks, enum=redstone blocks, enum=tools & utilities, enum=combat, enum=food & drinks, enum=ingredients, enum=spawn eggs,enum=other"`
+}
+type RecognizedBarrelItem struct {
+	SellerName string 
+    ItemName string
+    BenefitRatio float64
+    Quantity float64
+    Price float64 
+	TypeName string
 }

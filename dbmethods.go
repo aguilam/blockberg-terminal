@@ -310,7 +310,7 @@ func createBarrel(conn *sqlite.Conn, x int, y int, z int ) (*int,error) {
 	return &id,nil
 }
 
-func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int32, quantity int32, price int32, benefitRatio float32,barrelText string) (*int32, error){
+func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int32,recognizedBarrel RecognizedBarrelItem,barrelText string) (*int32, error){
 	var id int32
 	stmt := `
 		INSERT INTO barrel_item (item_id, barrel_id, seller_id, quantity, price, benefit_ratio, barrel_text)
@@ -322,7 +322,7 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int
 			id = stmt.ColumnInt32(0)
 			return nil
 		},
-		Args: []any{itemId,barrelId,sellerId,quantity,price,benefitRatio,barrelText},
+		Args: []any{itemId,barrelId,sellerId,recognizedBarrel.Quantity,recognizedBarrel.Price,recognizedBarrel.BenefitRatio,barrelText},
 	})
 	if err != nil {
 		return nil,err
