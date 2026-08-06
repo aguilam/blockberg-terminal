@@ -65,6 +65,15 @@ type BarrelItemFull struct {
 	RecordDate   time.Time  `json:"recordDate"`
 }
 
+type ItemsSnapshotSearchResponse struct {
+	Id           int  `json:"id"`
+	X            int     `json:"x"`
+	Y            int     `json:"y"`
+	Z            int     `json:"z"`
+	Items []ItemInBarrel `json:"items"`
+	RecordDate   time.Time  `json:"recordDate"`
+}
+
 type ItemsSnapshot struct {
 	Items []ItemInBarrel `json:"items"`
 	RecordDate   time.Time  `json:"recordDate"`
@@ -77,6 +86,14 @@ type BarrelItemResponse struct {
 	Page    int              `json:"page"`
 	Limit   int              `json:"limit"`
 }
+
+type PaginatedSnapshotSearchResponse struct {
+	Items []ItemsSnapshotSearchResponse `json:"items"`
+	Total   int              `json:"total"`
+	Page    int              `json:"page"`
+	Limit   int              `json:"limit"`
+}
+
 
 type BarrelInfo struct {
 	Id           int  `json:"id"`

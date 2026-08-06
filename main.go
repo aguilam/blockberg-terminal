@@ -45,7 +45,31 @@ func main() {
       "items": "items",
     })
   })
-
+  router.GET("/items/search",func (ctx *gin.Context)  {
+    query := ctx.Query("query")
+    page := ctx.Query("page")
+    pageSize := ctx.DefaultQuery("page_size","10")
+    if strings.TrimSpace(query) == "" {
+      ctx.JSON(400, gin.H{"error": "query is required"})
+      return
+    }
+    intPageSize, err := strconv.Atoi(pageSize)
+    if err != nil || intPageSize < 1 {
+      intPageSize = 10
+    }
+    intPage, err := strconv.Atoi(page)
+    if err != nil || intPage < 1 {
+      intPage = 1
+    }
+    intPageSize = min(intPageSize,100)
+    response, err := getItemsSnapshotByQuery(conn,query,intPage,intPageSize)
+    if err != nil{
+      ctx.Error(err)
+      ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+      return
+    }
+    ctx.JSON(200,response)
+  })
   router.GET("/types",func(ctx *gin.Context) {
     items_types, err := getTypes(conn)
     if err != nil{

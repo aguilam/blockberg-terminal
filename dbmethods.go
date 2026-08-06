@@ -330,6 +330,9 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int
 	return &id,nil
 }
 
+func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*PaginatedSnapshotSearchResponse,error){
+}
+
 func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*BarrelItemResponse, error) {
 	normalized_query := strings.ToLower(strings.TrimSpace(query))
 	var barrels []BarrelItemFull;
