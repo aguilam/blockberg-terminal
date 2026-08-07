@@ -28,3 +28,10 @@ func getUserMinecraftUUID(playerName string) (string,error) {
 	}
 	return target.ID, nil
 }
+
+func nilCordFlag(intFlag *int) *int {
+	if intFlag == nil || *intFlag == unsetCoord{
+		return nil
+	}
+	return intFlag
+}

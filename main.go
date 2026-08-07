@@ -11,19 +11,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
+const unsetCoord = 65531
 func main() {
   apiKey := flag.String("api-key","","Key used for add new storages. If not set, anyone can add new storages")
   port := flag.Int("port",8080,"Server port")
-  aiKey := flag.String("ai-key","","Key")
-  aiUrl := flag.String("ai-url","","URL")
-  aiPrompt := flag.String("ai-prompt","","")
-  aiModel := flag.String("ai-model","","")
+  aiKey := flag.String("ai-key","","AI provider API key")
+  aiUrl := flag.String("ai-url","","AI provider base url")
+  aiPrompt := flag.String("ai-prompt","","Replace base prompt for ai recognition")
+  aiModel := flag.String("ai-model","","Selected AI model name")
+  xMin := flag.Int("x-min",unsetCoord,"")
+  xMax := flag.Int("x-max",unsetCoord,"")
+  yMin := flag.Int("y-min",unsetCoord,"")
+  yMax := flag.Int("y-max",unsetCoord,"")
+  zMin := flag.Int("z-min",unsetCoord,"")
+  zMax := flag.Int("z-max",unsetCoord,"")
+
+  flag.Parse()
   prompt := defaultPrompt
   if *aiPrompt != "" {
     prompt = *aiPrompt
   }
-  flag.Parse()
+
+  xMin = nilCordFlag(xMin)
+  xMax = nilCordFlag(xMax)
+  yMin = nilCordFlag(yMin)
+  yMax = nilCordFlag(yMax)
+  zMin = nilCordFlag(zMin)
+  zMax = nilCordFlag(zMax)
 
   router := gin.New()
 
@@ -45,7 +59,7 @@ func main() {
       "items": "items",
     })
   })
-  
+
   router.GET("/items/search",func (ctx *gin.Context)  {
     query := ctx.Query("query")
     page := ctx.Query("page")
@@ -210,6 +224,15 @@ func main() {
     }
     var recognizedBarrel *RecognizedBarrelItem
     for _, barrel := range request {
+      if (xMin != nil && *barrel.X < *xMin) || (xMax != nil && *barrel.X > *xMax) {
+        continue
+      }
+      if (yMin != nil && *barrel.Y < *yMin) || (yMax != nil && *barrel.Y > *yMax) {
+        continue
+      }
+      if (zMin != nil && *barrel.Z < *zMin) || (zMax != nil && *barrel.Z > *zMax) {
+        continue
+      }
       splittedMessage := strings.Split(barrel.Message,"\n")
       if len(splittedMessage) == 3{
         recognizedBarrel.ItemName = splittedMessage[0]
