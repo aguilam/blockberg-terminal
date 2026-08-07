@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -331,6 +332,99 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int
 }
 
 func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*PaginatedSnapshotSearchResponse,error){
+	normalized_query := strings.ToLower(strings.TrimSpace(query))
+	var snapshots []ItemsSnapshotSearchResponse;
+	offset := (page - 1) * pageSize
+	var total int;
+	sqlite_query := `
+		SELECT id,x,y,z, items, record_date FROM (
+			SELECT 
+				snapshot.id, 
+				barrel.x, 
+				barrel.y, 
+				barrel.z, 
+				snapshot.record_date, 
+				ROW_NUMBER() OVER (
+					PARTITION by snapshot.barrel_id 
+					ORDER BY snapshot.record_date DESC, snapshot.id DESC
+				) AS snapshot_pos,
+				(
+                	SELECT json_group_array(
+                	    json_object('name', sub_i.name, 'quantity', sub_ib.quantity)
+                	)
+                	FROM item_in_barrel AS sub_ib
+                	JOIN item AS sub_i ON sub_i.id = sub_ib.item_id
+                	WHERE sub_ib.snapshot_id = snapshot.id
+            	) AS items
+			FROM item
+			JOIN item_in_barrel AS ib ON ib.item_id = item.id
+			JOIN storage_snapshot AS snapshot ON snapshot.id = ib.snapshot_id
+			JOIN barrel ON barrel.id = snapshot.barrel_id
+			WHERE item.normalized_name LIKE '%' || ? || '%'
+			GROUP BY snapshot.id
+		)
+		WHERE snapshot_pos = 1 
+		LIMIT ?
+		OFFSET ?
+	`
+	err := sqlitex.Execute(conn, sqlite_query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			record_date, err := time.Parse("2006-01-02 15:04:05",stmt.ColumnText(5))
+			if err != nil {
+				return err
+			}
+			itemsRaw := stmt.ColumnText(4)
+			var items []ItemInBarrel
+			if itemsRaw != "" {
+				if err := json.Unmarshal([]byte(itemsRaw), &items); err != nil {
+					return err
+				}
+			}
+			snapshot := ItemsSnapshotSearchResponse{
+				Id: stmt.ColumnInt(0),
+				X: stmt.ColumnInt(1),
+				Y: stmt.ColumnInt(2),
+				Z: stmt.ColumnInt(3),
+				Items: items,
+				RecordDate: record_date,
+			}
+			snapshots = append(snapshots,snapshot)
+			return nil
+		},
+		Args: []any{normalized_query,pageSize,offset},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlite_query = `
+		SELECT COUNT(*) FROM (
+			SELECT 
+				snapshot.id, 
+				ROW_NUMBER() OVER (
+					PARTITION by snapshot.barrel_id 
+					ORDER BY snapshot.record_date DESC, snapshot.id DESC
+				) AS snapshot_pos
+			FROM item
+			JOIN item_in_barrel AS ib ON ib.item_id = item.id
+			JOIN storage_snapshot AS snapshot ON snapshot.id = ib.snapshot_id
+			JOIN barrel ON barrel.id = snapshot.barrel_id
+			WHERE item.normalized_name LIKE '%' || ? || '%'
+			GROUP BY snapshot.id
+		)
+		WHERE snapshot_pos = 1 
+	`
+	err = sqlitex.Execute(conn, sqlite_query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			total = stmt.ColumnInt(0);
+			return nil
+		},
+		Args: []any{normalized_query},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &PaginatedSnapshotSearchResponse{Items: snapshots,Total: total,Page: page, Limit: pageSize}, nil
 }
 
 func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*BarrelItemResponse, error) {

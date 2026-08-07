@@ -45,6 +45,7 @@ func main() {
       "items": "items",
     })
   })
+  
   router.GET("/items/search",func (ctx *gin.Context)  {
     query := ctx.Query("query")
     page := ctx.Query("page")
@@ -70,6 +71,7 @@ func main() {
     }
     ctx.JSON(200,response)
   })
+
   router.GET("/types",func(ctx *gin.Context) {
     items_types, err := getTypes(conn)
     if err != nil{
