@@ -60,7 +60,7 @@ func main() {
     })
   })
 
-  router.GET("/items/search",func (ctx *gin.Context)  {
+  router.GET("/snapshots",func (ctx *gin.Context)  {
     query := ctx.Query("query")
     page := ctx.Query("page")
     pageSize := ctx.DefaultQuery("page_size","10")
