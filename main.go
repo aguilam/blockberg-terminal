@@ -222,7 +222,6 @@ func main() {
       ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		  return
     }
-    var recognizedBarrel *RecognizedBarrelItem
     for _, barrel := range request {
       if (xMin != nil && *barrel.X < *xMin) || (xMax != nil && *barrel.X > *xMax) {
         continue
@@ -233,10 +232,13 @@ func main() {
       if (zMin != nil && *barrel.Z < *zMin) || (zMax != nil && *barrel.Z > *zMax) {
         continue
       }
+      var recognizedBarrel *RecognizedBarrelItem
+
       splittedMessage := strings.Split(barrel.Message,"\n")
       if len(splittedMessage) == 3{
+        recognizedBarrel = &RecognizedBarrelItem{}
         recognizedBarrel.ItemName = splittedMessage[0]
-        benefitParts := strings.Split(splittedMessage[1],"-")
+        benefitParts := strings.Split(splittedMessage[1], "-")
         recognizedBarrel.SellerName = splittedMessage[2]
         re := regexp.MustCompile("[^0-9]")
         recognizedBarrel.Quantity, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
@@ -248,6 +250,9 @@ func main() {
           ctx.Error(err)
           return
         }
+      }
+      if recognizedBarrel == nil {
+        continue
       }
       sellerId, err := getSellerByName(conn,recognizedBarrel.SellerName)
       if sellerId == nil {
