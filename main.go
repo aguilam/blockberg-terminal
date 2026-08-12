@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -281,6 +283,14 @@ func main() {
       "status": "success",
     })
   })
-  addr := fmt.Sprintf(":%d",*port)
-  router.Run(addr)
+  addr := fmt.Sprintf("127.0.0.1:%d", *port)
+  listener, err := net.Listen("tcp", addr)
+  if err != nil {
+		log.Fatalf("Failed to bind port: %v", err)
+	}
+  actualAddr := listener.Addr().String()
+  fmt.Printf("SERVER_READY:%s\n", actualAddr)
+  if err := router.RunListener(listener); err != nil {
+		log.Fatalf("Server stopped: %v", err)
+	}
 }
