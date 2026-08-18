@@ -13,7 +13,8 @@ import (
 
 func ping(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{
-		"message": "pong",
+		"status": "ok",
+		"version": "1.0.0",
 	})
 }
 
