@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -218,6 +219,7 @@ func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *i
 		  var recognizedBarrel *RecognizedBarrelItem
 	
 		  splittedMessage := strings.Split(barrel.Message,"\n")
+		  fmt.Println(barrel.Message)
 		  if len(splittedMessage) == 3{
 			recognizedBarrel = &RecognizedBarrelItem{}
 			recognizedBarrel.ItemName = splittedMessage[0]
@@ -225,19 +227,91 @@ func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *i
 			recognizedBarrel.SellerName = splittedMessage[2]
 			re := regexp.MustCompile("[^0-9]")
 			quantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
+			if err != nil {
+				if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+					barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
+					recognizedBarrel = barrel
+					if err != nil {
+					  ctx.Error(err)
+					  continue
+					}
+				} else {
+					ctx.Error(err)
+					continue
+				}
+			}
 			recognizedBarrel.Quantity = quantity;
 			recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
 			if err != nil {
-				ctx.Error(err)
-				return
+				if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+					barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
+					recognizedBarrel = barrel
+					if err != nil {
+					  ctx.Error(err)
+					  continue
+					}
+				} else {
+					ctx.Error(err)
+					continue
+				}
+			} else {
+				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
+			}	
+		  } else if len(splittedMessage) == 4 {
+			recognizedBarrel = &RecognizedBarrelItem{}
+			recognizedBarrel.ItemName = splittedMessage[0] + " " + splittedMessage[1]
+			benefitParts := strings.Split(strings.ReplaceAll(splittedMessage[2]," ",""), "-")
+			if len(benefitParts) != 2 {
+				if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+					barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
+					recognizedBarrel = barrel
+					if err != nil {
+					  ctx.Error(err)
+					  continue
+					}
+				} else {
+					continue
+				}
 			}
-			recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
+			recognizedBarrel.SellerName = splittedMessage[3]
+			re := regexp.MustCompile("[^0-9]")
+			quantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
+			if err != nil {
+				if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+					barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
+					recognizedBarrel = barrel
+					if err != nil {
+					  ctx.Error(err)
+					  continue
+					}
+				} else {
+					ctx.Error(err)
+					continue
+				}
+			} 
+			recognizedBarrel.Quantity = quantity;
+			recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
+			if err != nil {
+				if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
+					barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
+					recognizedBarrel = barrel
+					if err != nil {
+					  ctx.Error(err)
+					  continue
+					}
+				} else {
+					ctx.Error(err)
+					continue
+				}
+			} else {
+				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
+			}	
 		  } else if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
 			barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
 			recognizedBarrel = barrel
 			if err != nil {
 			  ctx.Error(err)
-			  return
+			  continue
 			}
 		  }
 		  if recognizedBarrel == nil {
@@ -248,7 +322,6 @@ func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *i
 			id, err := getUserMinecraftUUID(recognizedBarrel.SellerName)
 			if err != nil {
 			  ctx.Error(err)
-			  return
 			}
 			sellerId, err = createSeller(conn,recognizedBarrel.SellerName,&id)
 		  }
@@ -257,7 +330,7 @@ func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *i
 			barrelId, err = createBarrel(conn,*barrel.X,*barrel.Y,*barrel.Z)
 			if err != nil {
 			  ctx.Error(err)
-			  return
+			  continue
 			}
 		  }
 		  itemId,err := getOrCreateItem(conn,recognizedBarrel.ItemName)

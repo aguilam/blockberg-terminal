@@ -459,7 +459,7 @@ func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) 
 		    JOIN seller ON seller.id = barrel_item.seller_id
 		)
 		WHERE barrel_pos = 1 AND normalized_name LIKE '%' || ? || '%'
-		ORDER BY INSTR(normalized_name, ?) ASC, LENGTH(normalized_name) ASC, benefit_ratio ASC
+		ORDER BY benefit_ratio DESC, INSTR(normalized_name, ?) ASC, LENGTH(normalized_name) ASC
 		LIMIT ?
 		OFFSET ?
 	`
