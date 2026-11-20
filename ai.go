@@ -11,7 +11,7 @@ import (
 )
 const defaultPrompt = `
 You are a text recognition system that extracts Minecraft item offers from input text and returns a JSON object.
-- Keep item names in the same language as the input. Do not translate item names.
+- Keep item names in the same language as the input. Do not translate item names. If item is explicitly stated to be free, return price: 0.
 
 3.
 Example 1:
@@ -151,6 +151,7 @@ Output:
   "price": 5,
   "type_name": "ingredients"
 }`
+
 func GenerateSchema[T any]() map[string]any {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
@@ -164,6 +165,7 @@ func GenerateSchema[T any]() map[string]any {
 	json.Unmarshal(data, &result)
 	return result
 }
+
 var RecognizedBarrelSchema = GenerateSchema[AiRecognizedBarrelItem]()
 func aiBarrelRecognition(apiKey string, baseUrl string, model string, message string, prompt string) (*RecognizedBarrelItem, error) {
 	ctx := context.Background()
@@ -188,10 +190,16 @@ func aiBarrelRecognition(apiKey string, baseUrl string, model string, message st
 	if err != nil {
 		return nil,err
 	}
+  var benefitRation float64
+  if recognizedBarrel.Price > 0 {
+    benefitRation = float64(recognizedBarrel.Quantity) / float64(recognizedBarrel.Price)
+  } else {
+    benefitRation = float64(recognizedBarrel.Quantity)
+  }
 	return &RecognizedBarrelItem{
 		SellerName: recognizedBarrel.SellerName,
 		ItemName: recognizedBarrel.ItemName,
-		BenefitRatio: float64(recognizedBarrel.Quantity) / float64(recognizedBarrel.Price),
+		BenefitRatio: benefitRation,
 		Quantity: float64(recognizedBarrel.Quantity),
 		Price: float64(recognizedBarrel.Price),
 		TypeName: recognizedBarrel.TypeName,

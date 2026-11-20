@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"zombiezen.com/go/sqlite"
@@ -137,6 +136,18 @@ func getBarrelByCords(conn *sqlite.Conn, x int, y int, z int) (*int,error){
 	}
 	return &id,nil
 }
+
+func getOrCreateBarrel(conn *sqlite.Conn, x int, y int, z int) (*int,error) {
+	barrelId, err := getBarrelByCords(conn,x,y,z)
+	if barrelId == nil {
+	  barrelId, err = createBarrel(conn,x,y,z)
+	  if err != nil {
+		return nil,err
+	  }
+	}
+	return barrelId,nil
+}
+
 func createItemInBarrel(conn *sqlite.Conn, item DBItemInBarrel) error{
 	query := `
 	INSERT INTO item_in_barrel (item_id, snapshot_id, quantity)
@@ -172,7 +183,7 @@ func createItemsSnapshot(conn *sqlite.Conn, barrelId int) (*int, error) {
 }
 
 func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
-    normalizedName := strings.ToLower(strings.TrimSpace(itemName))
+    normalizedName := normalizeString(itemName)
     var id int32
     var found bool
 
@@ -241,8 +252,20 @@ func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost) (error) {
 	return nil;
 }
 
+func getOrCreateSeller(conn *sqlite.Conn,sellerName string) (*int32, error) {
+	sellerId, err := getSellerByName(conn,sellerName)
+	if sellerId == nil || err != nil {
+	  id, err := getUserMinecraftUUID(sellerName)
+	  sellerId, err = createSeller(conn,sellerName,&id)
+	  if err != nil {
+		return nil,err
+	  }
+	}
+	return sellerId,nil
+}
+
 func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
-	normalizedName := strings.ToLower(strings.TrimSpace(sellerName))
+	normalizedName := normalizeString(sellerName)
 	found := false
 	var id int32
 	stmt := `
@@ -266,7 +289,7 @@ func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
 }
 
 func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32, error) {
-	normalized_username := strings.ToLower(strings.TrimSpace(name))
+	normalized_username := normalizeString(name)
 	var id int32
 	var uuid any = nil
 	if minecraft_id != nil {
@@ -332,7 +355,7 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int
 }
 
 func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*PaginatedSnapshotSearchResponse,error){
-	normalized_query := strings.ToLower(strings.TrimSpace(query))
+	normalized_query := normalizeString(query)
 	var snapshots []ItemsSnapshotSearchResponse;
 	offset := (page - 1) * pageSize
 	var total int;
@@ -428,7 +451,7 @@ func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize
 }
 
 func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*BarrelItemResponse, error) {
-	normalized_query := strings.ToLower(strings.TrimSpace(query))
+	normalized_query := normalizeString(query)
 	var barrels []BarrelItemFull;
 	offset := (page - 1) * pageSize
 	var total int;

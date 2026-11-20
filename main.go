@@ -22,7 +22,7 @@ func main() {
   yMax := flag.Int("y-max",unsetCoord,"")
   zMin := flag.Int("z-min",unsetCoord,"")
   zMax := flag.Int("z-max",unsetCoord,"")
-
+  isOnlyAI := flag.Bool("only-ai",false,"")
   flag.Parse()
   prompt := defaultPrompt
   if *aiPrompt != "" {
@@ -65,7 +65,7 @@ func main() {
 
   router.POST("/barrels/items",postBarrelItems(conn))
 
-  router.POST("/barrels",postBarrels(conn,apiKey,xMin,xMax,yMin,yMax,zMin,zMax,prompt,aiKey,aiModel,aiUrl))
+  router.POST("/barrels",postBarrels(conn,apiKey,xMin,xMax,yMin,yMax,zMin,zMax,prompt,aiKey,aiModel,aiUrl,*isOnlyAI))
 
   router.Use(func(ctx *gin.Context) {
     ctx.Next()

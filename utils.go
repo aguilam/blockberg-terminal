@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -34,4 +36,20 @@ func nilCordFlag(intFlag *int) *int {
 		return nil
 	}
 	return intFlag
+}
+
+func normalizeString(text string) string {
+	newString := strings.ToLower(strings.TrimSpace(text))
+	re := regexp.MustCompile(`[a-zA-Z0-9_\s]`)
+	newString = re.ReplaceAllString(newString,"")
+	re = regexp.MustCompile(`\s{2,}`)
+	return re.ReplaceAllString(newString," ")
+}
+
+func aiFallbackRecognizeBarrel(message string, aiKey string, aiUrl string, aiModel string, prompt string,oldErr error) (*RecognizedBarrelItem, error) {
+    if aiKey == "" || aiUrl == "" || aiModel == "" {
+        return nil, oldErr
+    }
+
+    return aiBarrelRecognition(aiKey, aiUrl, aiModel, message, prompt)
 }
