@@ -67,6 +67,18 @@ func main() {
 
   router.POST("/barrels",postBarrels(conn,apiKey,xMin,xMax,yMin,yMax,zMin,zMax,prompt,aiKey,aiModel,aiUrl,*isOnlyAI))
 
+  router.GET("/stats/barrels",GetAllBarrels(conn))
+
+  router.GET("/stats/sellers/top",GetTopSellers(conn))
+
+  router.GET("/stats/items/stored",GetTopStoredItems(conn))
+
+  router.GET("/stats/items/barrels",GetTopSellingBarrelItems(conn))
+
+  router.GET("/stats/items/price",GetBarrelsMaxPrices(conn))
+
+  router.GET("/stats/items/benefit",GetBarrelsMaxBenefit(conn))
+  
   router.Use(func(ctx *gin.Context) {
     ctx.Next()
 
