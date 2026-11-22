@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"zombiezen.com/go/sqlite"
@@ -66,16 +67,29 @@ const initScript = `
 	);
 `
 
-func InitDB(dbPath string) (*sqlite.Conn,error) {
-	conn, err := sqlite.OpenConn(dbPath,sqlite.OpenReadWrite|sqlite.OpenCreate)
-	if err != nil{
-		return nil,fmt.Errorf("DB open error: %w",err)
-	}
-	err = sqlitex.ExecScript(conn,initScript)
-	if err != nil {
-		conn.Close() 
-		return nil, fmt.Errorf("ошибка инициализации схемы: %w", err)
-	}
+func InitDB(dbPath string) (*sqlitex.Pool, error) {
+    pool, err := sqlitex.NewPool(dbPath, sqlitex.PoolOptions{
+        Flags: sqlite.OpenReadWrite | sqlite.OpenCreate,
+        PoolSize: 4,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("DB open error: %w", err)
+    }
 
-	return conn, nil
+    conn, err := pool.Take(context.Background())
+    if err != nil {
+        pool.Close()
+        return nil, fmt.Errorf("DB connection error: %w", err)
+    }
+
+    err = sqlitex.ExecScript(conn, initScript)
+
+    pool.Put(conn)
+
+    if err != nil {
+        pool.Close()
+        return nil, fmt.Errorf("ошибка инициализации схемы: %w", err)
+    }
+
+    return pool, nil
 }

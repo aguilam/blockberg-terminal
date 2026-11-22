@@ -39,10 +39,8 @@ func nilCordFlag(intFlag *int) *int {
 }
 
 func normalizeString(text string) string {
-	newString := strings.ToLower(strings.TrimSpace(text))
-	re := regexp.MustCompile(`[a-zA-Z0-9_\s]`)
-	newString = re.ReplaceAllString(newString,"")
-	re = regexp.MustCompile(`\s{2,}`)
+	newString := strings.ToLower(text)
+	re := regexp.MustCompile(`[^\p{L}0-9_]`)
 	return re.ReplaceAllString(newString," ")
 }
 

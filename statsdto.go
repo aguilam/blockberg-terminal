@@ -19,3 +19,8 @@ type ItemWithCount struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
 }
+
+type DatedData[T any] struct {
+	Day  string `json:"day"`
+	Data []T    `json:"data"`
+}

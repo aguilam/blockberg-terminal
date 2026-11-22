@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 func ping(ctx *gin.Context) {
@@ -26,8 +26,15 @@ func getItems() (func(*gin.Context)) {
 	}
 }
 
-func getSnapshots(conn *sqlite.Conn) (func(*gin.Context)) {
+func getSnapshots(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		query := ctx.Query("query")
 		page := ctx.Query("page")
 		pageSize := ctx.DefaultQuery("page_size","10")
@@ -54,8 +61,15 @@ func getSnapshots(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getAllTypes(conn *sqlite.Conn) (func(*gin.Context)) {
+func getAllTypes(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func (ctx *gin.Context)  {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		items_types, err := getTypes(conn)
 		if err != nil{
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -67,8 +81,15 @@ func getAllTypes(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getType(conn *sqlite.Conn) (func(*gin.Context)) {
+func getType(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		typeId := ctx.Param("id")
 		intType,err := strconv.Atoi(typeId)
 		if err != nil {
@@ -86,8 +107,15 @@ func getType(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getBarrels(conn *sqlite.Conn) (func(*gin.Context)) {
+func getBarrels(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		query := ctx.Query("query")
 		page := ctx.Query("page")
 		pageSize := ctx.DefaultQuery("page_size","10")
@@ -114,8 +142,15 @@ func getBarrels(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getBarrel(conn *sqlite.Conn) (func(*gin.Context)) {
+func getBarrel(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		id := ctx.Param("id")
 		intId, err := strconv.Atoi(id)
 		if err != nil {
@@ -138,7 +173,7 @@ func getBarrel(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
+func getBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
 	    ctx.JSON(200,gin.H{
 	      "items": "items",
@@ -146,8 +181,15 @@ func getBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func getSeller(conn *sqlite.Conn) (func(*gin.Context)) {
+func getSeller(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		sellerId := ctx.Param("id")
 		intId,err := strconv.Atoi(sellerId)
 		if err != nil {
@@ -165,15 +207,22 @@ func getSeller(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func postBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
+func postBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		var request ItemInBarrelPost
 		if err := ctx.ShouldBindJSON(&request);err != nil{
 		  ctx.Error(err)
 		  ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			  return
 		}
-		err := postItemsInBarrel(conn,request)
+		err = postItemsInBarrel(conn,request)
 		if err != nil {
 		  ctx.Error(err)
 		  if errors.Is(err,ErrNotFound){
@@ -189,7 +238,7 @@ func postBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *int, yMax * int, zMin *int, zMax *int, prompt string, aiKey *string, aiModel *string, aiUrl *string, isOnlyAI bool) (func(*gin.Context)) {
+func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *int, yMax * int, zMin *int, zMax *int, prompt string, aiKey *string, aiModel *string, aiUrl *string, isOnlyAI bool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
 		auth := ctx.GetHeader("Authorization")
 		expected := "Bearer " + *apiKey
@@ -205,6 +254,13 @@ func postBarrels(conn *sqlite.Conn,apiKey *string, xMin *int, xMax *int, yMin *i
 		  	ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		for _, barrel := range request {
 			if (xMin != nil && *barrel.X < *xMin) || (xMax != nil && *barrel.X > *xMax) {
 				continue

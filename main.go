@@ -40,7 +40,7 @@ func main() {
 
   router.Use(gin.Logger())
   router.Use(gin.Recovery())
-  conn,err := InitDB("sqlite.db")
+  pool,err := InitDB("sqlite.db")
   if err != nil {
     panic("failed to connect database: " + err.Error())
   }
@@ -49,35 +49,35 @@ func main() {
 
   router.GET("/items",getItems())
 
-  router.GET("/snapshots",getSnapshots(conn))
+  router.GET("/snapshots",getSnapshots(pool))
 
-  router.GET("/types",getAllTypes(conn))
+  router.GET("/types",getAllTypes(pool))
 
-  router.GET("/types/:id",getType(conn))
+  router.GET("/types/:id",getType(pool))
 
-  router.GET("/barrels",getBarrels(conn))
+  router.GET("/barrels",getBarrels(pool))
 
-  router.GET("/barrels/:id",getBarrel(conn))
+  router.GET("/barrels/:id",getBarrel(pool))
 
-  router.GET("/barrels/:id/items",getBarrelItems(conn))
+  router.GET("/barrels/:id/items",getBarrelItems(pool))
 
-  router.GET("/seller/:id",getSeller(conn))
+  router.GET("/seller/:id",getSeller(pool))
 
-  router.POST("/barrels/items",postBarrelItems(conn))
+  router.POST("/barrels/items",postBarrelItems(pool))
 
-  router.POST("/barrels",postBarrels(conn,apiKey,xMin,xMax,yMin,yMax,zMin,zMax,prompt,aiKey,aiModel,aiUrl,*isOnlyAI))
+  router.POST("/barrels",postBarrels(pool,apiKey,xMin,xMax,yMin,yMax,zMin,zMax,prompt,aiKey,aiModel,aiUrl,*isOnlyAI))
 
-  router.GET("/stats/barrels",GetAllBarrels(conn))
+  router.GET("/stats/barrels",GetAllBarrels(pool))
 
-  router.GET("/stats/sellers/top",GetTopSellers(conn))
+  router.GET("/stats/sellers/top",GetTopSellers(pool))
 
-  router.GET("/stats/items/stored",GetTopStoredItems(conn))
+  router.GET("/stats/items/stored",GetTopStoredItems(pool))
 
-  router.GET("/stats/items/barrels",GetTopSellingBarrelItems(conn))
+  router.GET("/stats/items/barrels",GetTopSellingBarrelItems(pool))
 
-  router.GET("/stats/items/price",GetBarrelsMaxPrices(conn))
+  router.GET("/stats/items/price",GetBarrelsMaxPrices(pool))
 
-  router.GET("/stats/items/benefit",GetBarrelsMaxBenefit(conn))
+  router.GET("/stats/items/benefit",GetBarrelsMaxBenefit(pool))
   
   router.Use(func(ctx *gin.Context) {
     ctx.Next()

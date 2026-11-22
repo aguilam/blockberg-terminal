@@ -25,123 +25,256 @@ func getBarrelsWithCords(conn *sqlite.Conn) ([]BarrelWithCords,error) {
 	return barrels,nil
 }
 
-func getTopSellers(conn *sqlite.Conn) ([]SellerShort,error) {
-	query := `SELECT seller.id, seller.username, seller.minecraft_uuid, COUNT(barrel.id) 
-				FROM seller 
-				JOIN barrel_item AS barrel ON barrel.seller_id = seller.id 
-				GROUP BY seller.id
-				ORDER BY COUNT(barrel.id) DESC, seller.id DESC
-				LIMIT 10`
-	sellers := []SellerShort{}
+func getTopSellers(conn *sqlite.Conn) ([]DatedData[SellerShort],error) {
+	query := `WITH daily AS (
+		SELECT 
+			seller.id,
+			seller.username,
+			seller.minecraft_uuid, 
+			COUNT(*) AS barrels_count,
+			date(b_i.record_date) AS day
+		FROM barrel_item as b_i
+		JOIN seller ON seller.id = b_i.seller_id
+		GROUP BY date(b_i.record_date), seller_id
+		),
+		ranked AS (
+		    SELECT *,
+		        ROW_NUMBER() OVER (
+		            PARTITION BY day
+		            ORDER BY barrels_count DESC, id
+		        ) AS position
+		    FROM daily
+		)
+		SELECT *
+		FROM ranked
+		WHERE position <= 5
+		ORDER BY day, position
+		`
+	var result []DatedData[SellerShort]
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			id := stmt.ColumnInt(0)
 			username := stmt.ColumnText(1)
 			uuid := stmt.ColumnText(2)
 			barrelsCount := stmt.ColumnInt(3)
+			day := stmt.ColumnText(4)
 			seller := SellerShort{Id: id,Name: username,UUID: uuid,BarrelsCount: barrelsCount}
-			sellers = append(sellers, seller)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[SellerShort]{
+					Day:   day,
+					Data: []SellerShort{},
+				})
+			}
+			result[len(result)-1].Data = append(
+				result[len(result)-1].Data,
+				seller,
+			)
 			return nil
 		},
 	})
 	if err != nil {
 		return nil,err
 	}
-	return sellers,nil
+	return result,nil
 }
 
-func getBarrelsMaxPrices(conn *sqlite.Conn) ([]BarrelItem,error) {
-	query := `SELECT 
-			b_item.id, b_item.item_id, b_item.barrel_id, b_item.seller_id, b_item.quantity, 
-    		b_item.price, b_item.benefit_ratio, b_item.record_date,
-			item.id, item.name, item.description, item.normalized_name
-		FROM barrel_item as b_item
-		LEFT JOIN seller ON b_item.seller_id = seller.id
-		JOIN item ON b_item.item_id = item.id
-		ORDER BY b_item.price DESC
-		LIMIT 5`
-	items := []BarrelItem{}
+func getItemMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+	query := `WITH daily AS (
+	    SELECT 
+	        b_i.id, b_i.quantity, 
+			b_i.price, b_i.benefit_ratio, b_i.record_date,
+			item.id, item.name,
+	        date(b_i.record_date) as day
+	    FROM barrel_item as b_i
+	    JOIN item ON b_i.item_id = item.id
+		GROUP BY item.id
+	),
+	ranked AS (
+	    SELECT *,
+	        ROW_NUMBER() OVER (
+	            PARTITION BY day 
+	            ORDER BY price DESC, id
+	        ) as position
+	    FROM daily
+	    WHERE benefit_ratio > 0
+	)
+	SELECT *
+	FROM ranked
+	WHERE position <= 5 
+	ORDER BY day, position`
+	var result []DatedData[BarrelItem]
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			var desc *string
-
-    		if stmt.ColumnType(10) != sqlite.TypeNull {
-    		    text := stmt.ColumnText(10)
-    		    desc = &text 
-    		}
 			item := BarrelItem{
 				Id: stmt.ColumnInt32(0),
 				Item: Item{
-					Id: stmt.ColumnInt32(8),
-					Name: stmt.ColumnText(9),
-					Description: desc,
-					NormalizedName: stmt.ColumnText(11),
+					Id: stmt.ColumnInt32(5),
+					Name: stmt.ColumnText(6),
 				},
-				Quantity: stmt.ColumnInt32(4),
-				Price: stmt.ColumnInt32(5),
-				BenefitRatio: float32(stmt.ColumnFloat(6)),
-				RecordDate: stmt.ColumnText(7),
+				Quantity: stmt.ColumnInt32(1),
+				Price: stmt.ColumnInt32(2),
+				BenefitRatio: float32(stmt.ColumnFloat(3)),
+				RecordDate: stmt.ColumnText(4),
 			}
-			items = append(items, item)
+			day := stmt.ColumnText(7)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[BarrelItem]{
+					Day:   day,
+					Data: []BarrelItem{},
+				})
+			}
+			result[len(result)-1].Data = append(
+				result[len(result)-1].Data,
+				item,
+			)
 			return nil
 		},
 	})
 	if err != nil {
 		return nil,err
 	}
-	return items,nil
+	return result,nil
 }
 
-func getBarrelsMaxBenefit(conn *sqlite.Conn) ([]BarrelItem,error) {
-	query := `SELECT 
-		b_item.id, b_item.item_id, b_item.barrel_id, b_item.seller_id, b_item.quantity, 
-		b_item.price, b_item.benefit_ratio, b_item.record_date,
-		item.id, item.name, item.description, item.normalized_name
-		FROM barrel_item as b_item
-		LEFT JOIN seller ON b_item.seller_id = seller.id
-		JOIN item ON b_item.item_id = item.id
-		ORDER BY b_item.benefit_ratio DESC
-		LIMIT 5`
-	items := []BarrelItem{}
+func getBarrelsMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+	query := `WITH daily AS (
+	    SELECT 
+	        b_i.id, b_i.quantity, 
+			b_i.price, b_i.benefit_ratio, b_i.record_date,
+			item.id, item.name,
+	        date(b_i.record_date) as day
+	    FROM barrel_item as b_i
+	    JOIN item ON b_i.item_id = item.id
+	),
+	ranked AS (
+	    SELECT *,
+	        ROW_NUMBER() OVER (
+	            PARTITION BY day 
+	            ORDER BY price DESC, id
+	        ) as position
+	    FROM daily
+	    WHERE benefit_ratio > 0
+	)
+	SELECT *
+	FROM ranked
+	WHERE position <= 5 
+	ORDER BY day, position`
+	var result []DatedData[BarrelItem]
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
-	ResultFunc: func(stmt *sqlite.Stmt) error {
-		var desc *string
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			item := BarrelItem{
+				Id: stmt.ColumnInt32(0),
+				Item: Item{
+					Id: stmt.ColumnInt32(5),
+					Name: stmt.ColumnText(6),
+				},
+				Quantity: stmt.ColumnInt32(1),
+				Price: stmt.ColumnInt32(2),
+				BenefitRatio: float32(stmt.ColumnFloat(3)),
+				RecordDate: stmt.ColumnText(4),
+			}
+			day := stmt.ColumnText(7)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[BarrelItem]{
+					Day:   day,
+					Data: []BarrelItem{},
+				})
+			}
+			result[len(result)-1].Data = append(
+				result[len(result)-1].Data,
+				item,
+			)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil,err
+	}
+	return result,nil
+}
 
-		if stmt.ColumnType(10) != sqlite.TypeNull {
-			text := stmt.ColumnText(10)
-			desc = &text 
-		}
-		item := BarrelItem{
-			Id: stmt.ColumnInt32(0),
-			Item: Item{
-				Id: stmt.ColumnInt32(8),
-				Name: stmt.ColumnText(9),
-				Description: desc,
-				NormalizedName: stmt.ColumnText(11),
-			},
-			Quantity: stmt.ColumnInt32(4),
-			Price: stmt.ColumnInt32(5),
-			BenefitRatio: float32(stmt.ColumnFloat(6)),
-			RecordDate: stmt.ColumnText(7),
-		}
-		items = append(items, item)
+func getBarrelsMaxBenefit(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+	query := `WITH daily AS (
+	    SELECT 
+	        b_i.id, b_i.quantity, 
+			b_i.price, b_i.benefit_ratio, b_i.record_date,
+			item.id, item.name,
+	        date(b_i.record_date) as day
+	    FROM barrel_item as b_i
+	    JOIN item ON b_i.item_id = item.id
+	),
+	ranked AS (
+	    SELECT *,
+	        ROW_NUMBER() OVER (
+	            PARTITION BY day 
+	            ORDER BY benefit_ratio DESC, id
+	        ) as position
+	    FROM daily
+	    WHERE benefit_ratio > 0
+	)
+	SELECT *
+	FROM ranked
+	WHERE position <= 5 
+	ORDER BY day, position`
+	var result []DatedData[BarrelItem]
+	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			item := BarrelItem{
+				Id: stmt.ColumnInt32(0),
+				Item: Item{
+					Id: stmt.ColumnInt32(5),
+					Name: stmt.ColumnText(6),
+				},
+				Quantity: stmt.ColumnInt32(1),
+				Price: stmt.ColumnInt32(2),
+				BenefitRatio: float32(stmt.ColumnFloat(3)),
+				RecordDate: stmt.ColumnText(4),
+			}
+			day := stmt.ColumnText(7)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[BarrelItem]{
+					Day:   day,
+					Data: []BarrelItem{},
+				})
+			}
+			result[len(result)-1].Data = append(
+				result[len(result)-1].Data,
+				item,
+			)
 		return nil
 	},
 	})
 	if err != nil {
 	return nil,err
 	}
-	return items,nil
+	return result,nil
 }
 
-func topSellingBarrelItems(conn *sqlite.Conn) ([]ItemWithCount,error) {
-	query := `SELECT item.id, item.name,COUNT(b_item.id)
-		FROM item
-		JOIN barrel_item as b_item ON b_item.item_id = item.id
-		GROUP BY item.id
-		ORDER BY COUNT(b_item.id) DESC
-		LIMIT 5`
-		items := []ItemWithCount{}
+func topSellingBarrelItems(conn *sqlite.Conn) ([]DatedData[ItemWithCount],error) {
+	query := `WITH daily AS (
+		    SELECT 
+		        item.id,
+				item.name,
+		        COUNT(barrel_item.id) AS barrels_count,
+		        date(barrel_item.record_date) as day
+		    FROM barrel_item 
+		    JOIN item ON barrel_item.item_id = item.id
+		    GROUP BY date(barrel_item.record_date), item.id
+		),
+		ranked AS (
+		    SELECT *,
+		        ROW_NUMBER() OVER (
+		            PARTITION BY day 
+		            ORDER BY barrels_count DESC,id
+		        ) as position
+		    FROM daily
+		)
+		SELECT *
+		FROM ranked
+		WHERE position <= 5
+		ORDER BY day, position
+		`
+	var result []DatedData[ItemWithCount]
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			item := ItemWithCount{
@@ -149,24 +282,49 @@ func topSellingBarrelItems(conn *sqlite.Conn) ([]ItemWithCount,error) {
 				Name: stmt.ColumnText(1),
 				Count: stmt.ColumnInt(2),
 			}
-			items = append(items, item)
+			day := stmt.ColumnText(3)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[ItemWithCount]{
+					Day:day,
+					Data: []ItemWithCount{},
+				})
+			}
+			result[len(result)-1].Data = append(result[len(result)-1].Data, item)
 			return nil
 		},
 	})
 	if err != nil {
 	return nil,err
 	}
-	return items,nil
+	return result,nil
 }
 
-func topStoredItems(conn *sqlite.Conn) ([]ItemWithCount,error) {
-	query := `SELECT item.id, item.name, SUM(item_in_barrel.quantity)
-		FROM item
-		JOIN item_in_barrel ON item_in_barrel.item_id = item.id
-		GROUP BY item.id
-		ORDER BY SUM(item_in_barrel.quantity) DESC
-		LIMIT 5`
-		items := []ItemWithCount{}
+func topStoredItems(conn *sqlite.Conn) ([]DatedData[ItemWithCount],error) {
+	query := `WITH daily AS (
+		    SELECT 
+		        item.id,
+				item.name,
+		        SUM(item_in_barrel.quantity) AS item_count,
+		        date(storage_snapshot.record_date) AS day
+		    FROM item_in_barrel 
+		    JOIN item ON item_in_barrel.item_id = item.id
+		    LEFT JOIN storage_snapshot ON storage_snapshot.id = item_in_barrel.snapshot_id
+		    GROUP BY date(storage_snapshot.record_date),item.id
+		),
+		ranked AS (
+		    SELECT *,
+		        ROW_NUMBER() OVER (
+		            PARTITION BY day 
+		            ORDER BY item_count DESC,id
+		        ) AS position
+		    FROM daily
+		)
+		SELECT *
+		FROM ranked
+		WHERE position <= 5
+		ORDER BY day, position
+		`
+	var result []DatedData[ItemWithCount]
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			item := ItemWithCount{
@@ -174,12 +332,19 @@ func topStoredItems(conn *sqlite.Conn) ([]ItemWithCount,error) {
 				Name: stmt.ColumnText(1),
 				Count: stmt.ColumnInt(2),
 			}
-			items = append(items, item)
+			day := stmt.ColumnText(3)
+			if len(result) == 0 || result[len(result)-1].Day != day {
+				result = append(result, DatedData[ItemWithCount]{
+					Day:day,
+					Data: []ItemWithCount{},
+				})
+			}
+			result[len(result)-1].Data = append(result[len(result)-1].Data, item)
 			return nil
 		},
 	})
 	if err != nil {
 	return nil,err
 	}
-	return items,nil
+	return result,nil
 }

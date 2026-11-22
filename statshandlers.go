@@ -1,14 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func GetAllBarrels(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetAllBarrels(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		barrels, err := getBarrelsWithCords(conn)
 		if err != nil{
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -18,8 +26,15 @@ func GetAllBarrels(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func GetTopSellers(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetTopSellers(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		sellers,err := getTopSellers(conn)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -29,10 +44,19 @@ func GetTopSellers(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func GetBarrelsMaxPrices(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetBarrelsMaxPrices(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			fmt.Println(err)
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		barrels,err := getBarrelsMaxPrices(conn)
 		if err != nil {
+			fmt.Println(err)
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 			return
 		}
@@ -40,8 +64,15 @@ func GetBarrelsMaxPrices(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func GetBarrelsMaxBenefit(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetBarrelsMaxBenefit(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		barrels,err := getBarrelsMaxBenefit(conn)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -51,8 +82,15 @@ func GetBarrelsMaxBenefit(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func GetTopSellingBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetTopSellingBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		items,err := topSellingBarrelItems(conn)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -62,8 +100,15 @@ func GetTopSellingBarrelItems(conn *sqlite.Conn) (func(*gin.Context)) {
 	}
 }
 
-func GetTopStoredItems(conn *sqlite.Conn) (func(*gin.Context)) {
+func GetTopStoredItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		conn, err := pool.Take(ctx.Request.Context())
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
+			return
+		}
+		defer pool.Put(conn)
+		
 		items,err := topStoredItems(conn)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})

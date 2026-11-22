@@ -36,19 +36,19 @@ type AllTypes struct {
 }
 
 type Item struct {
-	Id             int32
-	Name           string
-	Description    *string
-	NormalizedName string
+	Id             int32 `json:"id"`
+	Name           string `json:"name"`
+	Description    *string `json:"description"`
+	NormalizedName string `json:"normalizedName"`
 }
 
 type BarrelItem struct {
-	Id           int32
-	Item         Item
-	Quantity     int32
-	Price        int32
-	BenefitRatio float32
-	RecordDate   string
+	Id           int32 `json:"id"`
+	Item         Item `json:"item"`
+	Quantity     int32 `json:"quantity"`
+	Price        int32 `json:"price"`
+	BenefitRatio float32 `json:"benefitRatio"`
+	RecordDate   string `json:"recordDate"`
 }
 
 type BarrelItemFull struct {
