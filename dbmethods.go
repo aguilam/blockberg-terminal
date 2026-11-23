@@ -211,8 +211,9 @@ func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
 		INSERT INTO item (name, normalized_name) 
 		VALUES (?, ?) 
 		RETURNING id, name, normalized_name;`
+	formatedName := formatString(itemName)
     err = sqlitex.Execute(conn, insertQuery, &sqlitex.ExecOptions{
-        Args: []any{itemName, normalizedName},
+        Args: []any{formatedName, normalizedName},
         ResultFunc: func(stmt *sqlite.Stmt) error {
             id = stmt.ColumnInt32(0)
             return nil
@@ -265,7 +266,7 @@ func getOrCreateSeller(conn *sqlite.Conn,sellerName string) (*int32, error) {
 }
 
 func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
-	normalizedName := normalizeString(sellerName)
+	normalizedName := normalizeStringWithNumbers(sellerName)
 	found := false
 	var id int32
 	stmt := `
@@ -289,7 +290,7 @@ func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
 }
 
 func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32, error) {
-	normalized_username := normalizeString(name)
+	normalized_username := normalizeStringWithNumbers(name)
 	var id int32
 	var uuid any = nil
 	if minecraft_id != nil {

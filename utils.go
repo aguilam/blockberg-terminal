@@ -37,11 +37,22 @@ func nilCordFlag(intFlag *int) *int {
 	}
 	return intFlag
 }
+var normalCharsWithNumbers = regexp.MustCompile(`[^\p{L}0-9_\s]`)
+var normalChars = regexp.MustCompile(`[^\p{L}\s]`)
 
+func formatString(text string) string {
+	text = normalChars.ReplaceAllString(text,"")
+	return strings.Join(strings.Fields(text)," ")
+}
 func normalizeString(text string) string {
-	newString := strings.ToLower(text)
-	re := regexp.MustCompile(`[^\p{L}0-9_]`)
-	return re.ReplaceAllString(newString," ")
+	text = strings.ToLower(text)
+	text = normalChars.ReplaceAllString(text,"")
+	return strings.Join(strings.Fields(text)," ")
+}
+func normalizeStringWithNumbers(text string) string {
+	text = strings.ToLower(text)
+	text = normalCharsWithNumbers.ReplaceAllString(text,"")
+	return strings.Join(strings.Fields(text)," ")
 }
 
 func aiFallbackRecognizeBarrel(message string, aiKey string, aiUrl string, aiModel string, prompt string,oldErr error) (*RecognizedBarrelItem, error) {
