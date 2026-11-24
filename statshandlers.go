@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -48,7 +47,6 @@ func GetBarrelsMaxPrices(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
-			fmt.Println(err)
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 			return
 		}
@@ -56,7 +54,6 @@ func GetBarrelsMaxPrices(pool *sqlitex.Pool) (func(*gin.Context)) {
 		
 		barrels,err := getBarrelsMaxPrices(conn)
 		if err != nil {
-			fmt.Println(err)
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 			return
 		}

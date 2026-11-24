@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"zombiezen.com/go/sqlite"
@@ -291,6 +292,7 @@ func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
 
 func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32, error) {
 	normalized_username := normalizeStringWithNumbers(name)
+	name = formatStringWithNumbers(name)
 	var id int32
 	var uuid any = nil
 	if minecraft_id != nil {
@@ -333,6 +335,49 @@ func createBarrel(conn *sqlite.Conn, x int, y int, z int ) (*int,error) {
 		return nil,err
 	}
 	return &id,nil
+}
+func createBarrelItems(conn *sqlite.Conn,barrels []AddBarrelStruct) (error){
+	if len(barrels) == 0 {
+        return nil
+    }
+	var query strings.Builder
+	query.WriteString(`
+		INSERT INTO barrel_item (
+			item_id, barrel_id, seller_id,
+			quantity, price, benefit_ratio, barrel_text
+		)
+		VALUES
+	`)
+	args := make([]any, 0, len(barrels)*7)
+
+	for i, barrel := range barrels {
+		if i > 0 {
+			query.WriteByte(',')
+		}
+
+		query.WriteString("(?, ?, ?, ?, ?, ?, ?)")
+
+		args = append(args,
+			barrel.ItemId,
+			barrel.BarrelId,
+			barrel.SellerId,
+			barrel.Quantity,
+			barrel.Price,
+			barrel.BenefitRatio,
+			barrel.BarrelText,
+		)
+	}
+	err := sqlitex.Execute(conn,query.String(),&sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+//			id = stmt.ColumnInt32(0)
+			return nil
+		},
+		Args: args,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int32,recognizedBarrel RecognizedBarrelItem,barrelText string) (*int32, error){

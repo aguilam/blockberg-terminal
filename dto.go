@@ -124,3 +124,12 @@ type RecognizedBarrelItem struct {
     Price float64 
 	TypeName string
 }
+type AddBarrelStruct struct {
+	ItemId *int32
+	BarrelId *int
+	SellerId *int32
+	Quantity float64
+	Price float64
+	BenefitRatio float64
+	BarrelText string
+}

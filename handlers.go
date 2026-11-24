@@ -2,10 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -240,6 +242,7 @@ func postBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *int, yMax * int, zMin *int, zMax *int, prompt string, aiKey *string, aiModel *string, aiUrl *string, isOnlyAI bool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		allStart := time.Now()
 		auth := ctx.GetHeader("Authorization")
 		expected := "Bearer " + *apiKey
 		if *apiKey != "" && auth != expected {
@@ -260,8 +263,9 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 			return
 		}
 		defer pool.Put(conn)
-		
+		var barrels []AddBarrelStruct
 		for _, barrel := range request {
+			parseStart := time.Now()
 			if (xMin != nil && *barrel.X < *xMin) || (xMax != nil && *barrel.X > *xMax) {
 				continue
 			}
@@ -278,10 +282,9 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				if err != nil {
 					ctx.Error(err)
 					continue
-				} else {
-					recognizedBarrel = recBarrel
-					goto adding
 				}
+				recognizedBarrel = recBarrel
+				goto adding
 		  	}
 		  	if len(splittedMessage) == 3{
 				recognizedBarrel.ItemName = splittedMessage[0]
@@ -294,9 +297,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					if err != nil {
 						ctx.Error(err)
 						continue
-					} else {
-						goto adding
 					}
+					goto adding
 				}
 				recognizedBarrel.Quantity = quantity;
 				recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
@@ -305,9 +307,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					if err != nil {
 						ctx.Error(err)
 						continue
-					} else {
-						goto adding
 					}
+					goto adding
 				}
 				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price	
 		  	} else if len(splittedMessage) == 4 {
@@ -318,11 +319,9 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					if err != nil {
 						ctx.Error(err)
 						continue
-					} else {
-						recognizedBarrel = newBarrel
-						goto adding
 					}
-					
+					recognizedBarrel = newBarrel
+					goto adding				
 				}
 				recognizedBarrel.SellerName = splittedMessage[3]
 				re := regexp.MustCompile("[^0-9]")
@@ -332,9 +331,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					if err != nil {
 						ctx.Error(err)
 						continue
-					} else {
-						goto adding
 					}
+					goto adding
 				} 
 				recognizedBarrel.Quantity = quantity;
 				recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
@@ -343,9 +341,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					if err != nil {
 						ctx.Error(err)
 						continue
-					} else {
-						goto adding
 					}
+					goto adding
 				}
 				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
 		  	} else if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
@@ -360,14 +357,28 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 		  	if recognizedBarrel == nil {
 				continue
 		  	}
+			parseElapsed := time.Since(parseStart)
+			fmt.Println("Время парсинга:", parseElapsed)
+			dbTime := time.Now()
 		  	sellerId, err := getOrCreateSeller(conn,recognizedBarrel.SellerName)
 		  	barrelId, err := getOrCreateBarrel(conn,*barrel.X,*barrel.Y,*barrel.Z)
 		  	itemId,err := getOrCreateItem(conn,recognizedBarrel.ItemName)
-		  	_, err = createBarrelItem(conn,*itemId,*barrelId,*sellerId,*recognizedBarrel,barrel.Message)
-		  	if err != nil {
+			if err != nil {
 				ctx.Error(err)
-		  	}
+			}
+			dbElapsed := time.Since(dbTime)
+			fmt.Println("Время БД:", dbElapsed)
+			barrels = append(barrels, AddBarrelStruct{ItemId: itemId,SellerId: sellerId,BarrelId: barrelId,BarrelText: barrel.Message,Quantity: recognizedBarrel.Quantity,Price: recognizedBarrel.Price,BenefitRatio: recognizedBarrel.BenefitRatio})
 		}
+		dbTimee := time.Now()
+		err = createBarrelItems(conn,barrels)
+		dbElapsed := time.Since(dbTimee)
+		fmt.Println("Время БД:", dbElapsed)
+		if err != nil {
+			ctx.Error(err)
+		}
+		elapsed := time.Since(allStart)
+		fmt.Println("Время выполнения:", elapsed)
 		ctx.JSON(200,gin.H{
 		  "status": "success",
 		})

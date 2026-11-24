@@ -13,6 +13,7 @@ func getUserMinecraftUUID(playerName string) (string,error) {
 	var target struct {
 		ID string `json:"id"`
 	}
+	playerName = formatStringWithNumbers(playerName)
 	client := &http.Client{Timeout: 10 * time.Second}
 	url := fmt.Sprintf("https://api.minecraftservices.com/minecraft/profile/lookup/name/%s", playerName)
 	resp, err := client.Get(url)
@@ -44,15 +45,18 @@ func formatString(text string) string {
 	text = normalChars.ReplaceAllString(text,"")
 	return strings.Join(strings.Fields(text)," ")
 }
-func normalizeString(text string) string {
-	text = strings.ToLower(text)
-	text = normalChars.ReplaceAllString(text,"")
-	return strings.Join(strings.Fields(text)," ")
-}
-func normalizeStringWithNumbers(text string) string {
-	text = strings.ToLower(text)
+
+func formatStringWithNumbers(text string) string {
 	text = normalCharsWithNumbers.ReplaceAllString(text,"")
 	return strings.Join(strings.Fields(text)," ")
+}
+
+func normalizeString(text string) string {
+	return formatString(strings.ToLower(text))
+}
+
+func normalizeStringWithNumbers(text string) string {
+	return formatStringWithNumbers(strings.ToLower(text))
 }
 
 func aiFallbackRecognizeBarrel(message string, aiKey string, aiUrl string, aiModel string, prompt string,oldErr error) (*RecognizedBarrelItem, error) {

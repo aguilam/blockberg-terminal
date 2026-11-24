@@ -6,7 +6,7 @@ import (
 )
 
 func getBarrelsWithCords(conn *sqlite.Conn) ([]BarrelWithCords,error) {
-	query := "SELECT COUNT(id), id, x, y, z FROM barrel"
+	query := "SELECT id, x, y, z FROM barrel"
 	barrels := []BarrelWithCords{}
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
