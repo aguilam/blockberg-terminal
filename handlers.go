@@ -291,7 +291,7 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				benefitParts := strings.Split(strings.ReplaceAll(splittedMessage[1]," ",""), "-")
 				recognizedBarrel.SellerName = splittedMessage[2]
 				re := regexp.MustCompile("[^0-9]")
-				quantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
+				quantity, err := strconv.ParseInt(re.ReplaceAllString(benefitParts[0],""),10,32)
 				if err != nil {
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
@@ -300,8 +300,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					}
 					goto adding
 				}
-				recognizedBarrel.Quantity = quantity;
-				recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
+				recognizedBarrel.Quantity = int(quantity);
+				price,err := strconv.ParseInt(re.ReplaceAllString(benefitParts[1],""),10,32)
 				if err != nil {
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
@@ -310,7 +310,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					}
 					goto adding
 				}
-				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price	
+				recognizedBarrel.Price = int(price)
+				recognizedBarrel.BenefitRatio = float64(recognizedBarrel.Quantity) / float64(recognizedBarrel.Price)
 		  	} else if len(splittedMessage) == 4 {
 				recognizedBarrel.ItemName = splittedMessage[0] + " " + splittedMessage[1]
 				benefitParts := strings.Split(strings.ReplaceAll(splittedMessage[2]," ",""), "-")
@@ -325,17 +326,7 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				}
 				recognizedBarrel.SellerName = splittedMessage[3]
 				re := regexp.MustCompile("[^0-9]")
-				quantity, err := strconv.ParseFloat(re.ReplaceAllString(benefitParts[0],""),32)
-				if err != nil {
-					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
-					if err != nil {
-						ctx.Error(err)
-						continue
-					}
-					goto adding
-				} 
-				recognizedBarrel.Quantity = quantity;
-				recognizedBarrel.Price, err = strconv.ParseFloat(re.ReplaceAllString(benefitParts[1],""),32)
+				quantity, err := strconv.ParseInt(re.ReplaceAllString(benefitParts[0],""),10,32)
 				if err != nil {
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
@@ -344,7 +335,18 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					}
 					goto adding
 				}
-				recognizedBarrel.BenefitRatio = recognizedBarrel.Quantity / recognizedBarrel.Price
+				recognizedBarrel.Quantity = int(quantity);
+				price,err := strconv.ParseInt(re.ReplaceAllString(benefitParts[1],""),10,32)
+				if err != nil {
+					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
+					if err != nil {
+						ctx.Error(err)
+						continue
+					}
+					goto adding
+				}
+				recognizedBarrel.Price = int(price)
+				recognizedBarrel.BenefitRatio = float64(recognizedBarrel.Quantity) / float64(recognizedBarrel.Price)
 		  	} else if *aiKey != "" && *aiUrl != "" && *aiModel != "" {
 				barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
 				if err != nil {

@@ -358,9 +358,9 @@ func createBarrelItems(conn *sqlite.Conn,barrels []AddBarrelStruct) (error){
 		query.WriteString("(?, ?, ?, ?, ?, ?, ?)")
 
 		args = append(args,
-			barrel.ItemId,
-			barrel.BarrelId,
-			barrel.SellerId,
+			*barrel.ItemId,
+			*barrel.BarrelId,
+			*barrel.SellerId,
 			barrel.Quantity,
 			barrel.Price,
 			barrel.BenefitRatio,

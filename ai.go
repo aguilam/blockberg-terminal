@@ -200,8 +200,8 @@ func aiBarrelRecognition(apiKey string, baseUrl string, model string, message st
 		SellerName: recognizedBarrel.SellerName,
 		ItemName: recognizedBarrel.ItemName,
 		BenefitRatio: benefitRation,
-		Quantity: float64(recognizedBarrel.Quantity),
-		Price: float64(recognizedBarrel.Price),
+		Quantity: int(recognizedBarrel.Quantity),
+		Price: int(recognizedBarrel.Price),
 		TypeName: recognizedBarrel.TypeName,
 	},nil
 }

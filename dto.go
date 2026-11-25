@@ -120,16 +120,16 @@ type RecognizedBarrelItem struct {
 	SellerName string 
     ItemName string
     BenefitRatio float64
-    Quantity float64
-    Price float64 
+    Quantity int
+    Price int 
 	TypeName string
 }
 type AddBarrelStruct struct {
 	ItemId *int32
 	BarrelId *int
 	SellerId *int32
-	Quantity float64
-	Price float64
+	Quantity int
+	Price int
 	BenefitRatio float64
 	BarrelText string
 }
