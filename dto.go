@@ -38,7 +38,6 @@ type AllTypes struct {
 type Item struct {
 	Id             int32 `json:"id"`
 	Name           string `json:"name"`
-	Description    *string `json:"description"`
 	NormalizedName string `json:"normalizedName"`
 }
 

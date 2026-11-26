@@ -1,11 +1,16 @@
 package main
 
 import (
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
+var dbTracer = otel.Tracer("blockberg-terminal/stats/db")
 
-func getBarrelsWithCords(conn *sqlite.Conn) ([]BarrelWithCords,error) {
+func getBarrelsWithCords(conn *sqlite.Conn,c *gin.Context) ([]BarrelWithCords,error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.barrels.all.db")
+	defer span.End()
 	query := "SELECT id, x, y, z FROM barrel"
 	barrels := []BarrelWithCords{}
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
@@ -25,7 +30,9 @@ func getBarrelsWithCords(conn *sqlite.Conn) ([]BarrelWithCords,error) {
 	return barrels,nil
 }
 
-func getTopSellers(conn *sqlite.Conn) ([]DatedData[SellerShort],error) {
+func getTopSellers(conn *sqlite.Conn,c *gin.Context) ([]DatedData[SellerShort],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.sellers.top.db")
+	defer span.End()
 	query := `WITH daily AS (
 		SELECT 
 			seller.id,
@@ -78,7 +85,9 @@ func getTopSellers(conn *sqlite.Conn) ([]DatedData[SellerShort],error) {
 	return result,nil
 }
 
-func getItemMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+func getItemMaxPrices(conn *sqlite.Conn,c *gin.Context) ([]DatedData[BarrelItem],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.items.prices.db")
+	defer span.End()
 	query := `WITH daily AS (
 	    SELECT 
 	        b_i.id, b_i.quantity, 
@@ -136,7 +145,9 @@ func getItemMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
 	return result,nil
 }
 
-func getBarrelsMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+func getBarrelsMaxPrices(conn *sqlite.Conn,c *gin.Context) ([]DatedData[BarrelItem],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.barrels.prices.db")
+	defer span.End()
 	query := `WITH daily AS (
 	    SELECT 
 	        b_i.id, b_i.quantity, 
@@ -193,7 +204,9 @@ func getBarrelsMaxPrices(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
 	return result,nil
 }
 
-func getBarrelsMaxBenefit(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
+func getBarrelsMaxBenefit(conn *sqlite.Conn, c *gin.Context) ([]DatedData[BarrelItem],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.barrels.benefits.db")
+	defer span.End()
 	query := `WITH daily AS (
 	    SELECT 
 	        b_i.id, b_i.quantity, 
@@ -250,7 +263,9 @@ func getBarrelsMaxBenefit(conn *sqlite.Conn) ([]DatedData[BarrelItem],error) {
 	return result,nil
 }
 
-func topSellingBarrelItems(conn *sqlite.Conn) ([]DatedData[ItemWithCount],error) {
+func topSellingBarrelItems(conn *sqlite.Conn,c *gin.Context) ([]DatedData[ItemWithCount],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.barrels.items.db")
+	defer span.End()
 	query := `WITH daily AS (
 		    SELECT 
 		        item.id,
@@ -299,7 +314,9 @@ func topSellingBarrelItems(conn *sqlite.Conn) ([]DatedData[ItemWithCount],error)
 	return result,nil
 }
 
-func topStoredItems(conn *sqlite.Conn) ([]DatedData[ItemWithCount],error) {
+func topStoredItems(conn *sqlite.Conn,c *gin.Context) ([]DatedData[ItemWithCount],error) {
+	_,span := dbTracer.Start(c.Request.Context(),"stats.items.stored.db")
+	defer span.End()
 	query := `WITH daily AS (
 		    SELECT 
 		        item.id,

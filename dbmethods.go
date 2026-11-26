@@ -7,17 +7,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 var ErrNotFound = errors.New("Not found")
+var dTracer = otel.Tracer("blockberg-terminal/db")
 
 func getBarrelHistory(conn *sqlite.Conn,x int,y int, z int) {
 	return
 }
 
-func getTypes(conn *sqlite.Conn)([]AllTypes,error){
+func getTypes(conn *sqlite.Conn,c *gin.Context)([]AllTypes,error){
+	_,span := dTracer.Start(c.Request.Context(),"types.all.db")
+	defer span.End()
 	query := `
 		SELECT COUNT(item.id),type.id,type.name 
 		FROM item_type as type 
@@ -41,25 +46,20 @@ func getTypes(conn *sqlite.Conn)([]AllTypes,error){
 	return allTypes,nil
 }
 
-func getItemsByType(conn *sqlite.Conn, typeId int) ([]Item,error){
+func getItemsByType(conn *sqlite.Conn, typeId int, c *gin.Context) ([]Item,error){
+	_,span := dTracer.Start(c.Request.Context(),"type.items.db")
+	defer span.End()
 	query := `
-		SELECT id, name, description, normalized_name 
+		SELECT id, name, normalized_name 
 		FROM item
 		WHERE item.type_id = ?;`
 	var items []Item
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			var desc *string
-
-    		if stmt.ColumnType(2) != sqlite.TypeNull {
-    		    text := stmt.ColumnText(2)
-    		    desc = &text 
-    		}
 			item := Item{
 				Id: stmt.ColumnInt32(0),
 				Name: stmt.ColumnText(1),
-				Description: desc,
-				NormalizedName: stmt.ColumnText(3),
+				NormalizedName: stmt.ColumnText(2),
 			}
 			items = append(items,item)
 			return nil
@@ -72,12 +72,14 @@ func getItemsByType(conn *sqlite.Conn, typeId int) ([]Item,error){
 	return items,nil
 }
 
-func getBarrelsBySellerId(conn *sqlite.Conn,sellerId int32) ([]BarrelItem, error){
+func getBarrelsBySellerId(conn *sqlite.Conn,sellerId int32, c *gin.Context) ([]BarrelItem, error){
+	_,span := dTracer.Start(c.Request.Context(),"sellers.barrels.db")
+	defer span.End()
 	query := `
 		SELECT 
 			b_item.id, b_item.item_id, b_item.barrel_id, b_item.seller_id, b_item.quantity, 
     		b_item.price, b_item.benefit_ratio, b_item.record_date,
-			item.id, item.name, item.description, item.normalized_name, item.type_id
+			item.id, item.name, item.normalized_name, item.type_id
 		FROM barrel_item as b_item
 		JOIN seller ON b_item.seller_id = seller.id
 		JOIN item ON b_item.item_id = item.id
@@ -85,19 +87,12 @@ func getBarrelsBySellerId(conn *sqlite.Conn,sellerId int32) ([]BarrelItem, error
 	var sellerBarrels []BarrelItem
 	err := sqlitex.Execute(conn,query,&sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			var desc *string
-
-    		if stmt.ColumnType(10) != sqlite.TypeNull {
-    		    text := stmt.ColumnText(10)
-    		    desc = &text 
-    		}
 			item := BarrelItem{
 				Id: stmt.ColumnInt32(0),
 				Item: Item{
 					Id: stmt.ColumnInt32(8),
 					Name: stmt.ColumnText(9),
-					Description: desc,
-					NormalizedName: stmt.ColumnText(11),
+					NormalizedName: stmt.ColumnText(10),
 				},
 				Quantity: stmt.ColumnInt32(4),
 				Price: stmt.ColumnInt32(5),
@@ -115,7 +110,9 @@ func getBarrelsBySellerId(conn *sqlite.Conn,sellerId int32) ([]BarrelItem, error
 	return sellerBarrels,nil
 }
 
-func getBarrelByCords(conn *sqlite.Conn, x int, y int, z int) (*int,error){
+func getBarrelByCords(conn *sqlite.Conn, x int, y int, z int,c *gin.Context) (*int,error){
+	_,span := dTracer.Start(c.Request.Context(),"barrel.get.coords.db")
+	defer span.End()
 	query := `
 		SELECT id FROM barrel
 		WHERE x = ? AND y = ? AND z = ?`
@@ -138,10 +135,12 @@ func getBarrelByCords(conn *sqlite.Conn, x int, y int, z int) (*int,error){
 	return &id,nil
 }
 
-func getOrCreateBarrel(conn *sqlite.Conn, x int, y int, z int) (*int,error) {
-	barrelId, err := getBarrelByCords(conn,x,y,z)
+func getOrCreateBarrel(conn *sqlite.Conn, x int, y int, z int, c *gin.Context) (*int,error) {
+	_,span := dTracer.Start(c.Request.Context(),"barrel.get_or_create.db")
+	defer span.End()
+	barrelId, err := getBarrelByCords(conn,x,y,z,c)
 	if barrelId == nil {
-	  barrelId, err = createBarrel(conn,x,y,z)
+	  barrelId, err = createBarrel(conn,x,y,z,c)
 	  if err != nil {
 		return nil,err
 	  }
@@ -149,7 +148,9 @@ func getOrCreateBarrel(conn *sqlite.Conn, x int, y int, z int) (*int,error) {
 	return barrelId,nil
 }
 
-func createItemInBarrel(conn *sqlite.Conn, item DBItemInBarrel) error{
+func createItemInBarrel(conn *sqlite.Conn, item DBItemInBarrel, c *gin.Context) error{
+	_,span := dTracer.Start(c.Request.Context(),"item_in_barrel.create.db")
+	defer span.End()
 	query := `
 	INSERT INTO item_in_barrel (item_id, snapshot_id, quantity)
 	VALUES (?,?,?)
@@ -163,7 +164,9 @@ func createItemInBarrel(conn *sqlite.Conn, item DBItemInBarrel) error{
 	return nil
 }
 
-func createItemsSnapshot(conn *sqlite.Conn, barrelId int) (*int, error) {
+func createItemsSnapshot(conn *sqlite.Conn, barrelId int, c *gin.Context) (*int, error) {
+	_,span := dTracer.Start(c.Request.Context(),"snapshots.create.db")
+	defer span.End()
 	var snapshotId int
 	query := `
 		INSERT INTO storage_snapshot (barrel_id)
@@ -183,7 +186,9 @@ func createItemsSnapshot(conn *sqlite.Conn, barrelId int) (*int, error) {
 	return &snapshotId, err
 }
 
-func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
+func getOrCreateItem(conn *sqlite.Conn, itemName string, c *gin.Context) (*int32, error) {
+	_,span := dTracer.Start(c.Request.Context(),"item.get_or_create.db")
+	defer span.End()
     normalizedName := normalizeString(itemName)
     var id int32
     var found bool
@@ -227,8 +232,10 @@ func getOrCreateItem(conn *sqlite.Conn, itemName string) (*int32, error) {
     return &id, nil
 }
 
-func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost) (error) {
-	barrelId, err := getBarrelByCords(conn,*items.X,*items.Y,*items.Z)
+func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost, c *gin.Context) (error) {
+	_,span := dTracer.Start(c.Request.Context(),"item_barrel.post.db")
+	defer span.End()
+	barrelId, err := getBarrelByCords(conn,*items.X,*items.Y,*items.Z,c)
 	if err != nil{
 		return err;
 	}
@@ -236,17 +243,17 @@ func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost) (error) {
 		return ErrNotFound;
 	}
 
-	snapshotId, err := createItemsSnapshot(conn, *barrelId)
+	snapshotId, err := createItemsSnapshot(conn, *barrelId,c)
 	if err != nil {
 		return nil
 	}
 
 	for _,v := range items.Items {
-		id, err := getOrCreateItem(conn,v.Name)
+		id, err := getOrCreateItem(conn,v.Name,c)
 		if err != nil {
 			continue
 		}
-		err = createItemInBarrel(conn, DBItemInBarrel{ItemId: *id, SnapshotId: *snapshotId, Quantity: v.Quantity})
+		err = createItemInBarrel(conn, DBItemInBarrel{ItemId: *id, SnapshotId: *snapshotId, Quantity: v.Quantity},c)
 		if err != nil {
 			return err
 		}
@@ -254,11 +261,13 @@ func postItemsInBarrel(conn *sqlite.Conn,items ItemInBarrelPost) (error) {
 	return nil;
 }
 
-func getOrCreateSeller(conn *sqlite.Conn,sellerName string) (*int32, error) {
-	sellerId, err := getSellerByName(conn,sellerName)
+func getOrCreateSeller(conn *sqlite.Conn,sellerName string,c *gin.Context) (*int32, error) {
+	_,span := dTracer.Start(c.Request.Context(),"seller.get_or_create.db")
+	defer span.End()
+	sellerId, err := getSellerByName(conn,sellerName,c)
 	if sellerId == nil || err != nil {
 	  id, err := getUserMinecraftUUID(sellerName)
-	  sellerId, err = createSeller(conn,sellerName,&id)
+	  sellerId, err = createSeller(conn,sellerName,&id,c)
 	  if err != nil {
 		return nil,err
 	  }
@@ -266,7 +275,9 @@ func getOrCreateSeller(conn *sqlite.Conn,sellerName string) (*int32, error) {
 	return sellerId,nil
 }
 
-func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
+func getSellerByName(conn *sqlite.Conn,sellerName string, c *gin.Context) (*int32, error) {
+	_,span := dTracer.Start(c.Request.Context(),"seller.search.name.db")
+	defer span.End()
 	normalizedName := normalizeStringWithNumbers(sellerName)
 	found := false
 	var id int32
@@ -290,7 +301,9 @@ func getSellerByName(conn *sqlite.Conn,sellerName string) (*int32, error) {
 	return &id, nil
 }
 
-func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32, error) {
+func createSeller(conn *sqlite.Conn, name string, minecraft_id *string, c *gin.Context) (*int32, error) {
+	_,span := dTracer.Start(c.Request.Context(),"seller.post.db")
+	defer span.End()
 	normalized_username := normalizeStringWithNumbers(name)
 	name = formatStringWithNumbers(name)
 	var id int32
@@ -317,7 +330,9 @@ func createSeller(conn *sqlite.Conn, name string, minecraft_id *string) (*int32,
 	return &id,nil
 }
 
-func createBarrel(conn *sqlite.Conn, x int, y int, z int ) (*int,error) {
+func createBarrel(conn *sqlite.Conn, x int, y int, z int, c *gin.Context) (*int,error) {
+	_,span := dTracer.Start(c.Request.Context(),"barrel.post.db")
+	defer span.End()
 	var id int
 	stmt := `
 		INSERT INTO barrel (x,y,z)
@@ -336,7 +351,9 @@ func createBarrel(conn *sqlite.Conn, x int, y int, z int ) (*int,error) {
 	}
 	return &id,nil
 }
-func createBarrelItems(conn *sqlite.Conn,barrels []AddBarrelStruct) (error){
+func createBarrelItems(conn *sqlite.Conn,barrels []AddBarrelStruct,c *gin.Context) (error){
+	_,span := dTracer.Start(c.Request.Context(),"barrels.post_batch.db")
+	defer span.End()
 	if len(barrels) == 0 {
         return nil
     }
@@ -380,7 +397,9 @@ func createBarrelItems(conn *sqlite.Conn,barrels []AddBarrelStruct) (error){
 	return nil
 }
 
-func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int32,recognizedBarrel RecognizedBarrelItem,barrelText string) (*int32, error){
+func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int32,recognizedBarrel RecognizedBarrelItem,barrelText string,c *gin.Context) (*int32, error){
+	_,span := dTracer.Start(c.Request.Context(),"barrels.post.db")
+	defer span.End()
 	var id int32
 	stmt := `
 		INSERT INTO barrel_item (item_id, barrel_id, seller_id, quantity, price, benefit_ratio, barrel_text)
@@ -400,7 +419,9 @@ func createBarrelItem(conn *sqlite.Conn,itemId int32, barrelId int, sellerId int
 	return &id,nil
 }
 
-func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*PaginatedSnapshotSearchResponse,error){
+func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize int,c *gin.Context) (*PaginatedSnapshotSearchResponse,error){
+	_,span := dTracer.Start(c.Request.Context(),"snapshots.search.db")
+	defer span.End()
 	normalized_query := normalizeString(query)
 	var snapshots []ItemsSnapshotSearchResponse;
 	offset := (page - 1) * pageSize
@@ -496,7 +517,9 @@ func getItemsSnapshotByQuery(conn *sqlite.Conn, query string, page int, pageSize
 	return &PaginatedSnapshotSearchResponse{Items: snapshots,Total: total,Page: page, Limit: pageSize}, nil
 }
 
-func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) (*BarrelItemResponse, error) {
+func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int,c *gin.Context) (*BarrelItemResponse, error) {
+	_,span := dTracer.Start(c.Request.Context(),"barrels.search.db")
+	defer span.End()
 	normalized_query := normalizeString(query)
 	var barrels []BarrelItemFull;
 	offset := (page - 1) * pageSize
@@ -584,7 +607,9 @@ func getBarrelsByQuery(conn *sqlite.Conn, query string, page int, pageSize int) 
 	return &BarrelItemResponse{Barrels: barrels, Total: total, Page: page, Limit: pageSize}, nil
 }
 
-func getBarrelInfo(conn *sqlite.Conn, barrelId int) (*BarrelInfo,error) {
+func getBarrelInfo(conn *sqlite.Conn, barrelId int,c *gin.Context) (*BarrelInfo,error) {
+	_,span := dTracer.Start(c.Request.Context(),"barrels.info.db")
+	defer span.End()
 	var barrelInfo BarrelInfo
 	var lastSnapshotId int
 	var found bool

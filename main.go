@@ -44,13 +44,13 @@ func main() {
 
   shutdown, err := telemetry.Setup(
       ctx,
-      "barrel-api",
+      "blockberg-terminal",
       "localhost:4317",
   )
   if err != nil {
       log.Fatal(err)
   }
-
+  telemetry.InitMetrics()
   defer func() {
       ctx, cancel := context.WithTimeout(
           context.Background(),
@@ -73,7 +73,7 @@ func main() {
         log.Println("ERROR:", err.Err)
     }
   })
-  router.Use(otelgin.Middleware("barrel-api"))
+  router.Use(otelgin.Middleware("blockberg-terminal"))
   pool,err := InitDB("sqlite.db")
   if err != nil {
     panic("failed to connect database: " + err.Error())

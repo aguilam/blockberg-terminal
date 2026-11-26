@@ -36,7 +36,6 @@ const initScript = `
 	CREATE TABLE IF NOT EXISTS item(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		description TEXT,
 		normalized_name TEXT NOT NULL,
 		type_id INTEGER REFERENCES item_type(id) ON DELETE SET NULL
 	);

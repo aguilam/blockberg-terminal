@@ -7,6 +7,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 
 	otlpmetricgrpc "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -80,4 +81,25 @@ func Setup(
     }
 
     return shutdown, nil
+}
+
+var (
+    RecordsReceived  metric.Int64Counter
+    RecordsProcessed metric.Int64Counter
+)
+
+func InitMetrics() {
+    meter := otel.Meter("blockberg-terminal/handlers")
+
+    var err error
+
+    RecordsReceived, err = meter.Int64Counter("records.received")
+    if err != nil {
+        panic(err)
+    }
+
+    RecordsProcessed, err = meter.Int64Counter("records.processed")
+    if err != nil {
+        panic(err)
+    }
 }

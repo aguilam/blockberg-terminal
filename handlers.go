@@ -1,17 +1,22 @@
 package main
 
 import (
+	"blockberg-terminal/telemetry"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 	"zombiezen.com/go/sqlite/sqlitex"
 )
+
+var hTraces = otel.Tracer("blockberg-terminal/handlers")
 
 func ping(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{
@@ -30,6 +35,8 @@ func getItems() (func(*gin.Context)) {
 
 func getSnapshots(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"snapshots.search.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -53,7 +60,7 @@ func getSnapshots(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  intPage = 1
 		}
 		intPageSize = min(intPageSize,100)
-		response, err := getItemsSnapshotByQuery(conn,query,intPage,intPageSize)
+		response, err := getItemsSnapshotByQuery(conn,query,intPage,intPageSize,ctx)
 		if err != nil{
 		  ctx.Error(err)
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -65,6 +72,8 @@ func getSnapshots(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func getAllTypes(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func (ctx *gin.Context)  {
+		_,span := hTraces.Start(ctx.Request.Context(),"types.all.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -72,7 +81,7 @@ func getAllTypes(pool *sqlitex.Pool) (func(*gin.Context)) {
 		}
 		defer pool.Put(conn)
 		
-		items_types, err := getTypes(conn)
+		items_types, err := getTypes(conn,ctx)
 		if err != nil{
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 		  return
@@ -85,6 +94,8 @@ func getAllTypes(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func getType(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"types.one.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -98,7 +109,7 @@ func getType(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid type id"})
 		  return
 		}
-		items, err := getItemsByType(conn,intType)
+		items, err := getItemsByType(conn,intType,ctx)
 		if err != nil{
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 		  return
@@ -111,6 +122,8 @@ func getType(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func getBarrels(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"barrels.search.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -134,7 +147,7 @@ func getBarrels(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  intPage = 1
 		}
 		intPageSize = min(intPageSize,100)
-		response, err := getBarrelsByQuery(conn,query,intPage,intPageSize)
+		response, err := getBarrelsByQuery(conn,query,intPage,intPageSize,ctx)
 		if err != nil{
 		  ctx.Error(err)
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -146,6 +159,8 @@ func getBarrels(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func getBarrel(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"barrels.one.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -160,7 +175,7 @@ func getBarrel(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid barrel id"})
 		  return
 		}
-		info, err := getBarrelInfo(conn,intId)
+		info, err := getBarrelInfo(conn,intId,ctx)
 		if err != nil {
 		  ctx.Error(err)
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -185,6 +200,8 @@ func getBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func getSeller(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"sellers.one.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -198,7 +215,7 @@ func getSeller(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  ctx.JSON(http.StatusBadRequest,gin.H{"error": "invalid seller id"})
 		  return
 		}
-		items, err := getBarrelsBySellerId(conn,int32(intId))
+		items, err := getBarrelsBySellerId(conn,int32(intId),ctx)
 		if err != nil{
 		  ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
 		  return
@@ -211,6 +228,8 @@ func getSeller(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func postBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
+		_,span := hTraces.Start(ctx.Request.Context(),"snapshots.post.handlers")
+		defer span.End()
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -224,7 +243,7 @@ func postBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 		  ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			  return
 		}
-		err = postItemsInBarrel(conn,request)
+		err = postItemsInBarrel(conn,request,ctx)
 		if err != nil {
 		  ctx.Error(err)
 		  if errors.Is(err,ErrNotFound){
@@ -242,7 +261,8 @@ func postBarrelItems(pool *sqlitex.Pool) (func(*gin.Context)) {
 
 func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *int, yMax * int, zMin *int, zMax *int, prompt string, aiKey *string, aiModel *string, aiUrl *string, isOnlyAI bool) (func(*gin.Context)) {
 	return func(ctx *gin.Context) {
-		allStart := time.Now()
+		_,span := hTraces.Start(ctx.Request.Context(),"barrels.post.handlers")
+		defer span.End()
 		auth := ctx.GetHeader("Authorization")
 		expected := "Bearer " + *apiKey
 		if *apiKey != "" && auth != expected {
@@ -257,6 +277,7 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 		  	ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		telemetry.RecordsReceived.Add(ctx,int64(len(request)))
 		conn, err := pool.Take(ctx.Request.Context())
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError,gin.H{"error": "Internal error"})
@@ -264,8 +285,8 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 		}
 		defer pool.Put(conn)
 		var barrels []AddBarrelStruct
+		var success,aiRecognize,failed int64
 		for _, barrel := range request {
-			parseStart := time.Now()
 			if (xMin != nil && *barrel.X < *xMin) || (xMax != nil && *barrel.X > *xMax) {
 				continue
 			}
@@ -281,9 +302,11 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				recBarrel, err := aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,nil)
 				if err != nil {
 					ctx.Error(err)
+					failed++
 					continue
 				}
 				recognizedBarrel = recBarrel
+				aiRecognize++
 				goto adding
 		  	}
 		  	if len(splittedMessage) == 3{
@@ -296,8 +319,10 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
 						ctx.Error(err)
+						failed++
 						continue
 					}
+					aiRecognize++
 					goto adding
 				}
 				recognizedBarrel.Quantity = int(quantity);
@@ -306,8 +331,10 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
 						ctx.Error(err)
+						failed++
 						continue
 					}
+					aiRecognize++
 					goto adding
 				}
 				recognizedBarrel.Price = int(price)
@@ -317,11 +344,17 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				benefitParts := strings.Split(strings.ReplaceAll(splittedMessage[2]," ",""), "-")
 				if len(benefitParts) != 2 {
 					newBarrel, err := aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,nil)
+					if newBarrel == nil {
+						failed++
+						continue
+					}
 					if err != nil {
 						ctx.Error(err)
+						failed++
 						continue
 					}
 					recognizedBarrel = newBarrel
+					aiRecognize++
 					goto adding				
 				}
 				recognizedBarrel.SellerName = splittedMessage[3]
@@ -331,8 +364,10 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
 						ctx.Error(err)
+						failed++
 						continue
 					}
+					aiRecognize++
 					goto adding
 				}
 				recognizedBarrel.Quantity = int(quantity);
@@ -341,8 +376,10 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 					recognizedBarrel, err = aiFallbackRecognizeBarrel(barrel.Message,*aiKey,*aiUrl,*aiModel,prompt,err)
 					if err != nil {
 						ctx.Error(err)
+						failed++
 						continue
 					}
+					aiRecognize++
 					goto adding
 				}
 				recognizedBarrel.Price = int(price)
@@ -351,36 +388,41 @@ func postBarrels(pool *sqlitex.Pool,apiKey *string, xMin *int, xMax *int, yMin *
 				barrel, err := aiBarrelRecognition(*aiKey,*aiUrl,*aiModel,barrel.Message,prompt)
 				if err != nil {
 				  ctx.Error(err)
+				  failed++
 				  continue
 				}
 				recognizedBarrel = barrel
+				aiRecognize++
 		  	}
 			adding:
 		  	if recognizedBarrel == nil {
+				failed++
 				continue
 		  	}
-			parseElapsed := time.Since(parseStart)
-			fmt.Println("Время парсинга:", parseElapsed)
-			dbTime := time.Now()
-		  	sellerId, err := getOrCreateSeller(conn,recognizedBarrel.SellerName)
-		  	barrelId, err := getOrCreateBarrel(conn,*barrel.X,*barrel.Y,*barrel.Z)
-		  	itemId,err := getOrCreateItem(conn,recognizedBarrel.ItemName)
+		  	sellerId, err := getOrCreateSeller(conn,recognizedBarrel.SellerName,ctx)
+		  	barrelId, err := getOrCreateBarrel(conn,*barrel.X,*barrel.Y,*barrel.Z,ctx)
+		  	itemId,err := getOrCreateItem(conn,recognizedBarrel.ItemName,ctx)
 			if err != nil {
 				ctx.Error(err)
 			}
-			dbElapsed := time.Since(dbTime)
-			fmt.Println("Время БД:", dbElapsed)
 			barrels = append(barrels, AddBarrelStruct{ItemId: itemId,SellerId: sellerId,BarrelId: barrelId,BarrelText: barrel.Message,Quantity: recognizedBarrel.Quantity,Price: recognizedBarrel.Price,BenefitRatio: recognizedBarrel.BenefitRatio})
+			success++
 		}
-		dbTimee := time.Now()
-		err = createBarrelItems(conn,barrels)
-		dbElapsed := time.Since(dbTimee)
-		fmt.Println("Время БД:", dbElapsed)
+		err = createBarrelItems(conn,barrels,ctx)
 		if err != nil {
 			ctx.Error(err)
 		}
-		elapsed := time.Since(allStart)
-		fmt.Println("Время выполнения:", elapsed)
+		telemetry.RecordsProcessed.Add(ctx, int64(success),
+    	    metric.WithAttributes(attribute.String("result", "success")),
+    	)
+
+    	telemetry.RecordsProcessed.Add(ctx, int64(aiRecognize),
+    	    metric.WithAttributes(attribute.String("result", "aiRecognize")),
+    	)
+
+    	telemetry.RecordsProcessed.Add(ctx, int64(failed),
+    	    metric.WithAttributes(attribute.String("result", "failed")),
+    	)
 		ctx.JSON(200,gin.H{
 		  "status": "success",
 		})
